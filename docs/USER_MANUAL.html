@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Gateway 用户使用手册</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --sidebar-bg: #f8f9fa;
+    --text: #1a1a2e;
+    --text-secondary: #555;
+    --border: #e2e8f0;
+    --accent: #4f46e5;
+    --accent-hover: #4338ca;
+    --code-bg: #f1f5f9;
+    --code-text: #1e293b;
+    --table-bg: #ffffff;
+    --table-stripe: #f8fafc;
+    --blockquote-bg: #eef2ff;
+    --blockquote-border: #4f46e5;
+    --heading-color: #0f172a;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.75;
+    font-size: 15px;
+  }
+
+  /* ─── Layout ─── */
+  .wrapper { display: flex; min-height: 100vh; }
+
+  /* ─── Sidebar ─── */
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 24px 0;
+  }
+
+  .sidebar-header {
+    padding: 0 20px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+
+  .sidebar-header h2 {
+    font-size: 16px;
+    color: var(--heading-color);
+  }
+
+  .sidebar-header .version {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+
+  .toc { list-style: none; padding: 0; }
+  .toc li { margin: 0; }
+  .toc a {
+    display: block;
+    padding: 6px 20px;
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: all 0.15s;
+    border-left: 3px solid transparent;
+  }
+  .toc a:hover, .toc a.active {
+    color: var(--accent);
+    background: rgba(79, 70, 229, 0.06);
+    border-left-color: var(--accent);
+  }
+  .toc .toc-h2 { padding-left: 20px; }
+  .toc .toc-h3 { padding-left: 36px; font-size: 13px; }
+
+  /* ─── Main ─── */
+  .main {
+    flex: 1;
+    max-width: 860px;
+    padding: 40px 48px 80px;
+  }
+
+  /* ─── Typography ─── */
+  h1 {
+    font-size: 32px;
+    color: var(--heading-color);
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+
+  h2 {
+    font-size: 22px;
+    color: var(--heading-color);
+    margin: 40px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent);
+    line-height: 1.4;
+  }
+
+  h3 {
+    font-size: 17px;
+    color: var(--heading-color);
+    margin: 28px 0 12px;
+    line-height: 1.4;
+  }
+
+  p { margin-bottom: 14px; }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  strong { color: var(--heading-color); }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 32px 0;
+  }
+
+  /* ─── Subtitle / Meta ─── */
+  .subtitle {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 32px;
+    line-height: 1.6;
+  }
+
+  /* ─── Code ─── */
+  code {
+    font-family: "SF Mono", "Fira Code", "Fira Mono", "Consolas", monospace;
+    font-size: 13px;
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 16px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 16px 0;
+    font-size: 13px;
+    line-height: 1.6;
+    border: 1px solid var(--border);
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    font-size: 13px;
+  }
+
+  /* ─── Blockquote ─── */
+  blockquote {
+    background: var(--blockquote-bg);
+    border-left: 4px solid var(--blockquote-border);
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 14px;
+  }
+  blockquote p { margin-bottom: 0; }
+
+  /* ─── Tables ─── */
+  .table-wrap { overflow-x: auto; margin: 16px 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: var(--table-bg);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--sidebar-bg);
+    font-weight: 600;
+    color: var(--heading-color);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  tr:nth-child(even) td { background: var(--table-stripe); }
+  tr:last-child td { border-bottom: none; }
+
+  /* ─── Inline Callout ─── */
+  .callout {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 16px 0;
+    font-size: 14px;
+    border: 1px solid;
+  }
+  .callout-warning {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #92400e;
+  }
+  .callout-info {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1e40af;
+  }
+
+  /* ─── Lists ─── */
+  ul, ol { margin: 8px 0 14px 24px; }
+  li { margin-bottom: 4px; }
+
+  /* ─── Architecture diagram ─── */
+  .arch-diagram {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 20px;
+    border-radius: 8px;
+    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    overflow-x: auto;
+    margin: 16px 0;
+    white-space: pre;
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { padding: 24px 20px 60px; max-width: 100%; }
+  }
+
+  /* ─── Smooth scroll ─── */
+  html { scroll-behavior: smooth; scroll-padding-top: 20px; }
+
+  /* ─── Mermaid-like flowchart ─── */
+  .flowchart {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 20px;
+    border-radius: 8px;
+    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 16px 0;
+    white-space: pre;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- ====== Sidebar ====== -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>📖 AI Gateway 手册</h2>
+      <div class="version">v1.0 · 2026-06-07</div>
+    </div>
+    <ul class="toc" id="toc"></ul>
+  </nav>
+
+  <!-- ====== Main Content ====== -->
+  <main class="main" id="content">
+
+    <h1>AI Gateway 用户使用手册</h1>
+    <div class="subtitle">
+      <strong>版本</strong>: v1.0 &nbsp;·&nbsp; <strong>适用范围</strong>: 企业内部 AI 能力平台 &nbsp;·&nbsp; <strong>最后更新</strong>: 2026-06-07
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 1. 系统概述 -->
+    <!-- ============================================================ -->
+    <h2 id="1-系统概述">1. 系统概述</h2>
+
+    <h3 id="11-什么是-ai-gateway">1.1 什么是 AI Gateway</h3>
+    <p>AI Gateway 是一个企业内部的统一 AI API 网关，提供以下核心能力：</p>
+    <ul>
+      <li><strong>统一入口</strong>：通过一个网关对接多个 AI 服务商（OpenAI、DeepSeek、通义千问、Claude 等）</li>
+      <li><strong>OpenAI 兼容</strong>：完全兼容 OpenAI SDK，现有代码无需改造即可接入</li>
+      <li><strong>成本控制</strong>：实时统计 Token 消耗，支持按用户/部门额度管理</li>
+      <li><strong>审计安全</strong>：完整的操作审计日志和 Prompt 脱敏保存</li>
+      <li><strong>SSO 登录</strong>：支持钉钉扫码登录，自动开户</li>
+    </ul>
+
+    <h3 id="12-架构图">1.2 架构图</h3>
+    <div class="arch-diagram">┌─────────────────────┐     ┌──────────────────────┐
+│  前端管理后台        │     │  AI 客户端工具         │
+│  (localhost:3000)   │     │  (Cursor / ChatBox    │
+│                     │     │   / 自定义应用)        │
+└────────┬────────────┘     └──────────┬───────────┘
+         │                             │
+         ▼                             ▼
+┌──────────────────────────────────────────────┐
+│              AI Gateway API                   │
+│          (http://localhost:8010)              │
+├──────────────────────────────────────────────┤
+│  认证 → 限流 → 路由 → 转发 → 审计 → 计费    │
+└───────┬──────────────────────────┬───────────┘
+        │                          │
+        ▼                          ▼
+┌──────────────┐       ┌──────────────────┐
+│  PostgreSQL   │       │     Redis        │
+│  (用户/账单)  │       │   (限流/缓存)    │
+└──────────────┘       └──────────────────┘
+        │
+        ▼
+┌──────────────────────────────────────────────┐
+│          上游 AI Provider                     │
+│  OpenAI / DeepSeek / 通义千问 / Claude / ... │
+└──────────────────────────────────────────────┘</div>
+
+    <h3 id="13-服务地址">1.3 服务地址</h3>
+    <p>部署完成后，通过以下地址访问各项服务：</p>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>服务</th><th>地址</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>前端管理后台</strong></td><td><code>http://localhost:3000</code></td><td>管理界面入口</td></tr>
+        <tr><td><strong>API 接口</strong></td><td><code>http://localhost:8010</code></td><td>AI 网关接口</td></tr>
+        <tr><td><strong>API 文档</strong></td><td><code>http://localhost:8010/docs</code></td><td>Swagger 交互式文档</td></tr>
+        <tr><td><strong>Prometheus</strong></td><td><code>http://localhost:9090</code></td><td>指标数据</td></tr>
+        <tr><td><strong>Grafana</strong></td><td><code>http://localhost:3001</code></td><td>监控面板（admin/admin）</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- 2. 快速上手 -->
+    <!-- ============================================================ -->
+    <h2 id="2-快速上手">2. 快速上手</h2>
+
+    <h3 id="21-5-分钟快速体验">2.1 5 分钟快速体验</h3>
+    <pre><code># 1. 验证服务正常运行
+curl http://localhost:8010/health/liveness
+
+# 2. 查看可用模型列表（无需认证）
+curl http://localhost:8010/v1/models
+
+# 3. 在浏览器打开管理后台
+open http://localhost:3000</code></pre>
+
+    <h3 id="22-典型使用流程">2.2 典型使用流程</h3>
+    <div class="flowchart">注册/登录 → 创建 API Token → 配置客户端 → 开始调用
+   ↓            ↓               ↓              ↓
+钉钉扫码    生成 Key      OpenAI SDK      AI 对话
+首次自动    保存 Key      设置 base_url   自动计费
+开户赠额    仅显示一次    和 api_key     实时统计</div>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- 3. 登录与账户 -->
+    <!-- ============================================================ -->
+    <h2 id="3-登录与账户">3. 登录与账户</h2>
+
+    <h3 id="31-钉钉扫码登录">3.1 钉钉扫码登录</h3>
+    <blockquote><strong>前提</strong>：管理员已在 <code>.env</code> 中配置钉钉应用参数。</blockquote>
+    <ol>
+      <li>访问 <code>http://localhost:3000</code></li>
+      <li>点击「钉钉登录」按钮</li>
+      <li>使用钉钉手机端扫描二维码</li>
+      <li>首次登录自动创建账户，并获得 <strong>50 元默认额度</strong></li>
+    </ol>
+
+    <h3 id="32-账户信息">3.2 账户信息</h3>
+    <p>登录后，在首页可查看：</p>
+    <ul>
+      <li><strong>姓名 / 部门</strong>：来自钉钉组织架构</li>
+      <li><strong>角色</strong>：<code>employee</code>（普通员工）/ <code>admin</code>（管理员）/ <code>super_admin</code>（超级管理员）</li>
+      <li><strong>额度余额</strong>：当前可用额度（元）</li>
+      <li><strong>已用额度</strong>：本月已消耗额度</li>
+      <li><strong>API 调用次数</strong>：今日调用统计</li>
+    </ul>
+
+    <h3 id="33-额度说明">3.3 额度说明</h3>
+    <ul>
+      <li>新用户默认获得 <strong>50 元</strong> 额度</li>
+      <li>管理员可在后台调整用户额度</li>
+      <li>额度不足时，调用 AI 接口会返回 <code>402 Payment Required</code></li>
+      <li>额度计算基于模型价格表，按 Token 使用量计费</li>
+    </ul>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- 4. API Token 管理 -->
+    <!-- ============================================================ -->
+    <h2 id="4-api-token-管理">4. API Token 管理</h2>
+
+    <h3 id="41-创建-token">4.1 创建 Token</h3>
+    <ol>
+      <li>登录管理后台</li>
+      <li>左侧菜单点击「API Token」</li>
+      <li>点击「创建 Token」</li>
+      <li>输入名称（可选，方便管理）</li>
+      <li>点击确定</li>
+    </ol>
+
+    <h3 id="42-重要保存-token">4.2 重要：保存 Token</h3>
+    <div class="callout callout-warning">
+      <strong>⚠️ Token 仅在创建时显示一次</strong>，关闭弹窗后无法再次查看原文。
+    </div>
+    <p>创建成功后，请立即：</p>
+    <pre><code># 复制 Token 并保存在安全位置（如密码管理器）
+sk-company-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f</code></pre>
+
+    <h3 id="43-token-管理操作">4.3 Token 管理操作</h3>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>操作</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>创建</strong></td><td>生成一个新的 API Key</td></tr>
+        <tr><td><strong>查看列表</strong></td><td>查看所有 Token 的名称、创建时间、最后使用时间</td></tr>
+        <tr><td><strong>轮换</strong></td><td>撤销旧 Token 并生成新 Token（不影响正在处理的请求）</td></tr>
+        <tr><td><strong>删除</strong></td><td>永久撤销 Token，立即失效</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3 id="44-安全建议">4.4 安全建议</h3>
+    <ul>
+      <li>定期轮换 Token（建议每 90 天）</li>
+      <li>不要在代码中硬编码 Token</li>
+      <li>使用环境变量注入 Token</li>
+      <li>不同应用使用不同 Token，方便审计</li>
+    </ul>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- 5. 调用 AI 接口 -->
+    <!-- ============================================================ -->
+    <h2 id="5-调用-ai-接口">5. 调用 AI 接口</h2>
+
+    <h3 id="51-openai-兼容-sdk">5.1 OpenAI 兼容 SDK</h3>
+    <p>AI Gateway 提供完全兼容 OpenAI 的 API，使用 OpenAI SDK 即可直接调用：</p>
+
+    <p><strong>Python 示例：</strong></p>
+    <pre><code><span style="color:#7c3aed;font-weight:600">from</span> <span style="color:#0f766e">openai</span> <span style="color:#7c3aed;font-weight:600">import</span> OpenAI
+
+client = OpenAI(
+    api_key=<span style="color:#b45309">"sk-company-xxxxx..."</span>,       <span style="color:#64748b"># 替换为你的 Token</span>
+    base_url=<span style="color:#b45309">"http://localhost:8010/v1"</span>  <span style="color:#64748b"># 网关地址</span>
+)
+
+<span style="color:#64748b"># 列出可用模型</span>
+models = client.models.list()
+<span style="color:#2563eb">print</span>(<span style="color:#b45309">"可用模型:"</span>, [m.id <span style="color:#7c3aed;font-weight:600">for</span> m <span style="color:#7c3aed;font-weight:600">in</span> models])
+
+<span style="color:#64748b"># Chat 对话</span>
+response = client.chat.completions.create(
+    model=<span style="color:#b45309">"gpt-4o"</span>,
+    messages=[
+        {<span style="color:#b45309">"role"</span>: <span style="color:#b45309">"system"</span>, <span style="color:#b45309">"content"</span>: <span style="color:#b45309">"你是一个 helpful assistant。"</span>},
+        {<span style="color:#b45309">"role"</span>: <span style="color:#b45309">"user"</span>, <span style="color:#b45309">"content"</span>: <span style="color:#b45309">"你好，请介绍一下你自己"</span>}
+    ]
+)
+<span style="color:#2563eb">print</span>(response.choices[<span style="color:#0891b2">0</span>].message.content)</code></pre>
+
+    <p><strong>Node.js 示例：</strong></p>
+    <pre><code><span style="color:#7c3aed;font-weight:600">import</span> <span style="color:#0f766e">OpenAI</span> <span style="color:#7c3aed;font-weight:600">from</span> <span style="color:#b45309">'openai'</span>;
+
+<span style="color:#7c3aed;font-weight:600">const</span> client = <span style="color:#7c3aed;font-weight:600">new</span> <span style="color:#0f766e">OpenAI</span>({
+  apiKey: <span style="color:#b45309">'sk-company-xxxxx...'</span>,
+  baseURL: <span style="color:#b45309">'http://localhost:8010/v1'</span>
+});
+
+<span style="color:#7c3aed;font-weight:600">const</span> response = <span style="color:#7c3aed;font-weight:600">await</span> client.chat.completions.create({
+  model: <span style="color:#b45309">'gpt-4o'</span>,
+  messages: [
+    { role: <span style="color:#b45309">'user'</span>, content: <span style="color:#b45309">'Hello!'</span> }
+  ]
+});
+
+<span style="color:#2563eb">console.log</span>(response.choices[<span style="color:#0891b2">0</span>].message.content);</code></pre>
+
+    <p><strong>cURL 示例：</strong></p>
+    <pre><code>curl http://localhost:8010/v1/chat/completions \
+  -H <span style="color:#b45309">"Authorization: Bearer sk-company-xxxxx..."</span> \
+  -H <span style="color:#b45309">"Content-Type: application/json"</span> \
+  -d <span style="color:#b45309">'{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'</span></code></pre>
+
+    <h3 id="52-流式响应">5.2 流式响应</h3>
+    <p>支持 SSE（Server-Sent Events）流式输出，适用于打字机效果：</p>
+    <pre><code>stream = client.chat.completions.create(
+    model=<span style="color:#b45309">"gpt-4o"</span>,
+    messages=[{<span style="color:#b45309">"role"</span>: <span style="color:#b45309">"user"</span>, <span style="color:#b45309">"content"</span>: <span style="color:#b45309">"讲个故事"</span>}],
+    stream=<span style="color:#0891b2">True</span>
+)
+<span style="color:#7c3aed;font-weight:600">for</span> chunk <span style="color:#7c3aed;font-weight:600">in</span> stream:
+    <span style="color:#7c3aed;font-weight:600">if</span> chunk.choices[<span style="color:#0891b2">0</span>].delta.content:
+        <span style="color:#2563eb">print</span>(chunk.choices[<span style="color:#0891b2">0</span>].delta.content, end=<span style="color:#b45309">""</span>, flush=<span style="color:#0891b2">True</span>)</code></pre>
+
+    <h3 id="53-在第三方工具中使用">5.3 在第三方工具中使用</h3>
+    <p>AI Gateway 兼容主流 AI 工具，配置方式：</p>
+
+    <p><strong>Cursor：</strong></p>
+    <pre><code>设置 → Models → OpenAI API Key → 填入你的 Token
+OpenAI Base URL → http://localhost:8010/v1</code></pre>
+
+    <p><strong>Cherry Studio：</strong></p>
+    <pre><code>设置 → AI 服务 → OpenAI → 
+API 地址: http://localhost:8010/v1
+API Key: 你的 Token</code></pre>
+
+    <p><strong>Open WebUI：</strong></p>
+    <pre><code>管理员面板 → 设置 → 外部连接 → OpenAI API →
+API URL: http://localhost:8010/v1
+API Key: 你的 Token</code></pre>
+
+    <h3 id="54-embeddings-接口">5.4 Embeddings 接口</h3>
+    <pre><code>response = client.embeddings.create(
+    model=<span style="color:#b45309">"text-embedding-ada-002"</span>,
+    input=<span style="color:#b45309">"这是一段需要向量化的文本"</span>
+)
+<span style="color:#2563eb">print</span>(response.data[<span style="color:#0891b2">0</span>].embedding)</code></pre>
+
+    <h3 id="55-可用模型列表">5.5 可用模型列表</h3>
+    <pre><code>curl http://localhost:8010/v1/models \
+  -H <span style="color:#b45309">"Authorization: Bearer sk-company-xxxxx..."</span></code></pre>
+    <p>返回示例：</p>
+    <pre><code>{
+  <span style="color:#0f766e">"data"</span>: [
+    {<span style="color:#0f766e">"id"</span>: <span style="color:#b45309">"gpt-4o"</span>, <span style="color:#0f766e">"object"</span>: <span style="color:#b45309">"model"</span>, ...},
+    {<span style="color:#0f766e">"id"</span>: <span style="color:#b45309">"deepseek-chat"</span>, <span style="color:#0f766e">"object"</span>: <span style="color:#b45309">"model"</span>, ...},
+    {<span style="color:#0f766e">"id"</span>: <span style="color:#b45309">"claude-3-opus"</span>, <span style="color:#0f766e">"object"</span>: <span style="color:#b45309">"model"</span>, ...}
+  ]
+}</code></pre>
+    <div class="callout callout-info">模型列表由管理员在 Provider 管理中配置，实际可用模型取决于已添加的 Provider。</div>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- 6. Provider 管理 -->
+    <!-- ============================================================ -->
+    <h2 id="6-provider-管理管理员">6. Provider 管理（管理员）</h2>
+
+    <h3 id="61-什么是-provider">6.1 什么是 Provider</h3>
+    <p>Provider 是上游 AI 服务商的配置。一个 Provider 对应一个 API 服务地址（如 OpenAI、DeepSeek）。</p>
+
+    <h3 id="62-添加-provider">6.2 添加 Provider</h3>
+    <ol>
+      <li>使用管理员账号登录</li>
+      <li>左侧菜单进入「Provider 管理」</li>
+      <li>点击「新增 Provider」</li>
+      <li>填写以下信息：</li>
+    </ol>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>字段</th><th>说明</th><th>示例</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>名称</td><td>内部标识（英文）</td><td><code>deepseek</code></td></tr>
+        <tr><td>显示名称</td><td>前端展示名称</td><td><code>DeepSeek</code></td></tr>
+        <tr><td>API Base URL</td><td>服务商接口地址</td><td><code>https://api.deepseek.com</code></td></tr>
+        <tr><td>API Key</td><td>你的服务商密钥</td><td><code>sk-xxx</code></td></tr>
+        <tr><td>模型列表</td><td>该 Provider 支持的模型</td><td><code>deepseek-chat, deepseek-reasoner</code></td></tr>
+        <tr><td>优先级</td><td>数字越小优先级越高</td><td><code>100</code></td></tr>
+        <tr><td>QPS 限制</td><td>每秒请求数上限</td><td><code>60</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3 id="63-支持的-provider-模板">6.3 支持的 Provider 模板</h3>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Provider</th><th>API Base URL</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>OpenAI</td><td><code>https://api.openai.com</code></td></tr>
+        <tr><td>Anthropic Claude</td><td><code>https://api.anthropic.com</code></td></tr>
+        <tr><td>Google Gemini</td><td><code>https://generativelanguage.googleapis.com</code></td></tr>
+        <tr><td>DeepSeek</td><td><code>https://api.deepseek.com</code></td></tr>
+        <tr><td>通义千问</td><td><code>https://dashscope.aliyuncs.com</code></td></tr>
+        <tr><td>Ollama（本地）</td><td><code>http://host.docker.internal:11434</code></td></tr>
+        <tr><td>vLLM（本地）</td><td><code>http://host.docker.internal:8000</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3 id="64-健康检查">6.4 健康检查</h3>
+    <p>添加 Provider 后，可点击「健康检查」按钮测试连通性：</p>
+    <pre><code><span style="color:#64748b">// 成功响应</span>
+{<span style="color:#0f766e">"status"</span>: <span style="color:#b45309">"healthy"</span>, <span style="color:#0f766e">"latency_ms"</span>: <span style="color:#0891b2">234</span>}
+
+<span style="color:#64748b">// 失败响应</span>
+{<span style="color:#0f766e">"status"</span>: <span style="color:#b45309">"unhealthy"</span>, <span style="color:#0f766e">"error"</span>: <span style="color:#b45309">"Connection refused"</span>}</code></pre>
+
+    <h3 id="65-多-key-负载均衡">6.5 多 Key 负载均衡</h3>
+    <p>支持为每个 Provider 配置多个 API Key，系统自动轮询和故障切换：</p>
+    <pre><code>Provider: DeepSeek
+  Key 1: sk-aaa (优先级 100) ← 优先使用
+  Key 2: sk-bbb (优先级 100) ← 故障时自动切换
+  Key 3: sk-ccc (优先级 200) ← 备用</code></pre>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- 7. 用户管理 -->
+    <!-- ============================================================ -->
+    <h2 id="7-用户管理管理员">7. 用户管理（管理员）</h2>
+
+    <h3 id="71-用户列表">7.1 用户列表</h3>
+    <p>管理员可在「用户管理」页面查看所有用户，包含：</p>
+    <ul>
+      <li>姓名、部门、邮箱（来自钉钉同步）</li>
+      <li>角色（employee / admin / super_admin / finance）</li>
+      <li>账户状态（启用/禁用）</li>
+      <li>额度余额</li>
+      <li>本月已用额度</li>
+      <li>注册时间</li>
+    </ul>
+
+    <h3 id="72-用户操作">7.2 用户操作</h3>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>操作</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>编辑用户</td><td>修改角色、额度</td></tr>
+        <tr><td>启用/禁用</td><td>禁用后用户无法调用 API</td></tr>
+        <tr><td>充值额度</td><td>增加用户可用额度</td></tr>
+        <tr><td>查看详情</td><td>查看用户调用历史和消费记录</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3 id="73-角色权限">7.3 角色权限</h3>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>角色</th><th>查看统计</th><th>管理 Token</th><th>管理用户</th><th>管理 Provider</th><th>导出报表</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>employee</td><td>自己的</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+        <tr><td>admin</td><td>全部</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+        <tr><td>super_admin</td><td>全部</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+        <tr><td>finance</td><td>全部</td><td>❌</td><td>❌</td><td>❌</td><td>✅</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- 8. 数据统计与报表 -->
+    <!-- ============================================================ -->
+    <h2 id="8-数据统计与报表">8. 数据统计与报表</h2>
+
+    <h3 id="81-仪表盘">8.1 仪表盘</h3>
+    <p>登录后首页展示关键指标：</p>
+    <ul>
+      <li><strong>今日调用次数</strong></li>
+      <li><strong>本月总消耗（元）</strong></li>
+      <li><strong>本日 Token 消耗</strong></li>
+      <li><strong>本月 Token 消耗趋势图</strong></li>
+      <li><strong>各模型调用分布</strong></li>
+      <li><strong>各用户调用排行</strong></li>
+    </ul>
+
+    <h3 id="82-数据统计">8.2 数据统计</h3>
+    <p>进入「数据统计」页面：</p>
+    <ul>
+      <li><strong>日报</strong>：按天查看 Token 消耗和费用</li>
+      <li><strong>月报</strong>：按月查看汇总数据</li>
+      <li><strong>趋势图</strong>：可视化展示使用趋势</li>
+    </ul>
+
+    <h3 id="83-报表导出">8.3 报表导出</h3>
+    <pre><code><span style="color:#64748b"># 导出指定月份的 CSV 报表</span>
+curl http://localhost:8010/api/v1/stats/export?month=2026-06 \
+  -H <span style="color:#b45309">"Authorization: Bearer &lt;admin_token&gt;"</span></code></pre>
+    <p>导出的 CSV 包含：</p>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>字段</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>日期</td><td>调用日期</td></tr>
+        <tr><td>用户</td><td>调用者</td></tr>
+        <tr><td>模型</td><td>使用的模型</td></tr>
+        <tr><td>Token 输入</td><td>输入 Token 数</td></tr>
+        <tr><td>Token 输出</td><td>输出 Token 数</td></tr>
+        <tr><td>费用（元）</td><td>本次调用费用</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3 id="84-手动查看指标">8.4 手动查看指标</h3>
+    <p>后端暴露 Prometheus 指标：</p>
+    <pre><code>curl http://localhost:8010/metrics</code></pre>
+    <p>关键指标：</p>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>指标名</th><th>类型</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>ai_gateway_requests_total</code></td><td>Counter</td><td>请求总数</td></tr>
+        <tr><td><code>ai_gateway_request_duration_ms</code></td><td>Histogram</td><td>请求延迟</td></tr>
+        <tr><td><code>ai_gateway_sse_streams_total</code></td><td>Counter</td><td>SSE 流数</td></tr>
+        <tr><td><code>ai_gateway_tokens_total</code></td><td>Counter</td><td>Token 用量</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- 9. 监控与运维 -->
+    <!-- ============================================================ -->
+    <h2 id="9-监控与运维">9. 监控与运维</h2>
+
+    <h3 id="91-健康检查">9.1 健康检查</h3>
+    <p>API 提供了两个健康检查端点：</p>
+    <pre><code><span style="color:#64748b"># Liveness Probe（存活检查）</span>
+curl http://localhost:8010/health/liveness
+<span style="color:#64748b"># → {"status": "alive", "timestamp": ...}</span>
+
+<span style="color:#64748b"># Readiness Probe（就绪检查）</span>
+curl http://localhost:8010/health/readiness
+<span style="color:#64748b"># → {"status": "ready", "database": "ok", "redis": "ok", ...}</span></code></pre>
+
+    <h3 id="92-查看日志">9.2 查看日志</h3>
+    <pre><code><span style="color:#64748b"># 查看所有服务日志</span>
+docker compose logs -f
+
+<span style="color:#64748b"># 查看特定服务日志</span>
+docker compose logs -f backend
+docker compose logs -f frontend
+
+<span style="color:#64748b"># 查看最近 100 行</span>
+docker compose logs --tail=100 backend</code></pre>
+
+    <h3 id="93-grafana-监控面板">9.3 Grafana 监控面板</h3>
+    <p>访问 <code>http://localhost:3001</code>（默认账号：admin / admin）</p>
+    <p>预置面板包含：</p>
+    <ul>
+      <li><strong>请求量趋势</strong>：实时 API 调用次数</li>
+      <li><strong>延迟分布</strong>：各接口响应时间</li>
+      <li><strong>错误率</strong>：4xx/5xx 错误统计</li>
+      <li><strong>Token 使用量</strong>：各模型 Token 消耗</li>
+    </ul>
+
+    <h3 id="94-prometheus-指标">9.4 Prometheus 指标</h3>
+    <p>访问 <code>http://localhost:9090</code> 可执行 PromQL 查询：</p>
+    <pre><code><span style="color:#64748b"># 最近 5 分钟请求速率</span>
+rate(ai_gateway_requests_total[5m])
+
+<span style="color:#64748b"># 平均延迟</span>
+avg(ai_gateway_request_duration_ms)
+
+<span style="color:#64748b"># 各模型 Token 消耗</span>
+sum by(model) (ai_gateway_tokens_total)</code></pre>
+
+    <h3 id="95-审计日志">9.5 审计日志</h3>
+    <p>系统自动记录以下敏感操作：</p>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>操作类型</th><th>记录内容</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>登录</td><td>登录时间、IP、来源</td></tr>
+        <tr><td>Token 操作</td><td>创建、轮换、删除</td></tr>
+        <tr><td>用户管理</td><td>修改角色、额度变更</td></tr>
+        <tr><td>Provider 变更</td><td>新增、修改、删除 Provider</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>登录管理后台 → 「审计日志」可查看和筛选。</p>
+
+    <h3 id="96-日志脱敏">9.6 日志脱敏</h3>
+    <p>系统自动对日志中的敏感信息进行脱敏处理：</p>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>类型</th><th>原文示例</th><th>脱敏后</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Authorization</td><td><code>Bearer sk-company-xxx</code></td><td><code>Bearer ***</code></td></tr>
+        <tr><td>手机号</td><td><code>13800138000</code></td><td><code>138****8000</code></td></tr>
+        <tr><td>身份证</td><td><code>110101199001011234</code></td><td><code>110101********1234</code></td></tr>
+        <tr><td>邮箱</td><td><code>zhangsan@company.com</code></td><td><code>z****n@company.com</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- 10. 常见问题 -->
+    <!-- ============================================================ -->
+    <h2 id="10-常见问题">10. 常见问题</h2>
+
+    <h3 id="101-接口返回-401-unauthorized">10.1 接口返回 401 Unauthorized</h3>
+    <p><strong>原因</strong>：Token 无效或已过期。</p>
+    <p><strong>解决</strong>：</p>
+    <ol>
+      <li>检查 Token 是否已复制完整（包括 <code>sk-company-</code> 前缀）</li>
+      <li>在管理后台重新创建 Token</li>
+      <li>确认 Token 未被删除或轮换</li>
+    </ol>
+
+    <h3 id="102-接口返回-402-payment-required">10.2 接口返回 402 Payment Required</h3>
+    <p><strong>原因</strong>：账户额度不足。</p>
+    <p><strong>解决</strong>：</p>
+    <ol>
+      <li>登录管理后台查看当前额度</li>
+      <li>联系管理员充值</li>
+    </ol>
+
+    <h3 id="103-接口返回-429-too-many-requests">10.3 接口返回 429 Too Many Requests</h3>
+    <p><strong>原因</strong>：超出 QPS 限制（默认用户 10 QPS，Provider 100 QPS）。</p>
+    <p><strong>解决</strong>：</p>
+    <ol>
+      <li>降低请求频率</li>
+      <li>如需提高限制，联系管理员调整配置</li>
+    </ol>
+
+    <h3 id="104-提示模型不可用">10.4 提示"模型不可用"</h3>
+    <p><strong>原因</strong>：请求的模型未配置或 Provider 故障。</p>
+    <p><strong>解决</strong>：</p>
+    <ol>
+      <li>先调用 <code>GET /v1/models</code> 查看可用模型列表</li>
+      <li>联系管理员确认 Provider 是否正常运行</li>
+      <li>管理员可在 Provider 管理页面执行健康检查</li>
+    </ol>
+
+    <h3 id="105-钉钉登录失败">10.5 钉钉登录失败</h3>
+    <p><strong>原因</strong>：钉钉应用配置不正确。</p>
+    <p><strong>解决</strong>：</p>
+    <ol>
+      <li>确认 <code>.env</code> 中的 <code>DINGTALK_APP_ID</code> 和 <code>DINGTALK_APP_SECRET</code> 已正确配置</li>
+      <li>确认钉钉应用已开启扫码登录权限</li>
+      <li>确认回调域名正确配置</li>
+    </ol>
+
+    <h3 id="106-忘记管理员密码">10.6 忘记管理员密码</h3>
+    <p><strong>原因</strong>：AI Gateway 使用钉钉 SSO，没有独立密码。</p>
+    <p><strong>解决</strong>：</p>
+    <ol>
+      <li>用钉钉扫码登录即可</li>
+      <li>如果钉钉账号无法登录，联系服务器管理员在数据库中修改角色</li>
+    </ol>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- 附录 -->
+    <!-- ============================================================ -->
+    <h2 id="附录a环境变量参考">附录 A：环境变量参考</h2>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>变量名</th><th>默认值</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>SECRET_KEY</code></td><td>-</td><td>JWT 签名密钥（必填，至少 32 字符）</td></tr>
+        <tr><td><code>ENCRYPTION_KEY</code></td><td>-</td><td>AES-256 加密密钥（必填，32 字节）</td></tr>
+        <tr><td><code>DATABASE_URL</code></td><td><code>postgresql+asyncpg://...</code></td><td>数据库连接串</td></tr>
+        <tr><td><code>REDIS_URL</code></td><td><code>redis://redis:6379/0</code></td><td>Redis 连接串</td></tr>
+        <tr><td><code>DINGTALK_APP_ID</code></td><td>-</td><td>钉钉应用 AppKey</td></tr>
+        <tr><td><code>DINGTALK_APP_SECRET</code></td><td>-</td><td>钉钉应用 AppSecret</td></tr>
+        <tr><td><code>DEBUG</code></td><td><code>false</code></td><td>调试模式</td></tr>
+        <tr><td><code>DEFAULT_QUOTA_AMOUNT</code></td><td><code>50.0</code></td><td>新用户默认额度</td></tr>
+        <tr><td><code>RATE_LIMIT_USER_QPS</code></td><td><code>10</code></td><td>用户 QPS 上限</td></tr>
+        <tr><td><code>RATE_LIMIT_PROVIDER_QPS</code></td><td><code>100</code></td><td>Provider QPS 上限</td></tr>
+        <tr><td><code>PROMPT_SAVE_MODE</code></td><td><code>off</code></td><td>Prompt 保存策略</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h2 id="附录b部署运维命令">附录 B：部署运维命令</h2>
+    <pre><code><span style="color:#64748b"># 启动所有服务</span>
+docker compose up -d
+
+<span style="color:#64748b"># 停止所有服务</span>
+docker compose down
+
+<span style="color:#64748b"># 重启特定服务</span>
+docker compose restart backend
+
+<span style="color:#64748b"># 查看实时日志</span>
+docker compose logs -f backend
+
+<span style="color:#64748b"># 重新构建并启动（代码更新后）</span>
+docker compose up -d --build backend
+
+<span style="color:#64748b"># 重置所有数据（谨慎！会清空数据库）</span>
+docker compose down -v
+docker compose up -d</code></pre>
+
+  </main>
+</div>
+
+<script>
+  // ─── Build Table of Contents ───
+  (function() {
+    const toc = document.getElementById('toc');
+    const headings = document.querySelectorAll('#content h2, #content h3');
+    const items = [];
+
+    headings.forEach(h => {
+      const id = h.id || h.textContent.trim().replace(/\s+/g, '-').replace(/[^\w\-]/g, '');
+      if (!h.id) h.id = id;
+
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = '#' + id;
+      a.textContent = h.textContent;
+      if (h.tagName === 'H3') {
+        a.className = 'toc-h3';
+      } else {
+        a.className = 'toc-h2';
+      }
+      li.appendChild(a);
+      toc.appendChild(li);
+      items.push(a);
+    });
+
+    // ─── Active state on scroll ───
+    function onScroll() {
+      let current = '';
+      const scrollY = window.scrollY + 100;
+      headings.forEach(h => {
+        if (h.offsetTop <= scrollY) current = h.id;
+      });
+      items.forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+      });
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,93 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai_gateway
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8010:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/ai_gateway
+      - DATABASE_URL_SYNC=postgresql://postgres:postgres@db:5432/ai_gateway
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-change-this-to-a-random-secret-key-min-32-chars}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-change-this-to-32-byte-key!!}
+      - DINGTALK_CORP_ID=${DINGTALK_CORP_ID:-}
+      - DINGTALK_APP_ID=${DINGTALK_APP_ID:-}
+      - DINGTALK_APP_SECRET=${DINGTALK_APP_SECRET:-}
+      - DINGTALK_AGENT_ID=${DINGTALK_AGENT_ID:-}
+      - DINGTALK_CORP_ID=${DINGTALK_CORP_ID:-}
+      - DEBUG=${DEBUG:-false}
+      - FRONTEND_URL=${FRONTEND_URL:-https://dsapi.surebestind.com}
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:8010,https://dsapi.surebestind.com
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
