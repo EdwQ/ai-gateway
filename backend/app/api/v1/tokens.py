@@ -27,7 +27,18 @@ async def list_tokens(
     """List current user's API tokens."""
     tokens = await token_service.list_tokens(db, current_user.id)
     return ApiTokenListResponse(
-        items=[ApiTokenResponse.model_validate(t, from_attributes=True) for t in tokens]
+        items=[
+            ApiTokenResponse(
+                id=str(t.id),
+                token_prefix=t.token_prefix,
+                name=t.name,
+                is_active=t.is_active,
+                last_used_at=t.last_used_at,
+                expires_at=t.expires_at,
+                created_at=t.created_at,
+            )
+            for t in tokens
+        ]
     )
 
 
@@ -65,7 +76,15 @@ async def delete_token(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Token not found",
         )
-    return ApiTokenResponse.model_validate(token, from_attributes=True)
+    return ApiTokenResponse(
+        id=str(token.id),
+        token_prefix=token.token_prefix,
+        name=token.name,
+        is_active=token.is_active,
+        last_used_at=token.last_used_at,
+        expires_at=token.expires_at,
+        created_at=token.created_at,
+    )
 
 
 @router.post("/{token_id}/rotate", response_model=ApiTokenRotateResponse)
