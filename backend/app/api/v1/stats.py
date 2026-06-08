@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_role
+from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.usage import (
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/stats", tags=["Statistics & BI"])
 @router.get("/dashboard", response_model=DashboardStats)
 async def get_dashboard(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["admin", "finance", "super_admin"])),
+    current_user: User = Depends(get_current_user),
 ):
     """Get dashboard overview statistics."""
     stats = await usage_service.get_dashboard_stats(db)
@@ -32,7 +32,7 @@ async def get_daily_stats(
     user_id: Optional[str] = Query(None),
     model: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["admin", "finance", "super_admin"])),
+    current_user: User = Depends(get_current_user),
 ):
     """Get daily usage statistics."""
     items = await usage_service.get_daily_stats(
@@ -45,7 +45,7 @@ async def get_daily_stats(
 async def get_monthly_stats(
     months: int = Query(6, ge=1, le=24),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["admin", "finance", "super_admin"])),
+    current_user: User = Depends(get_current_user),
 ):
     """Get monthly usage statistics."""
     items = await usage_service.get_monthly_stats(db, months=months)
