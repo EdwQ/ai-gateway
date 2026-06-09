@@ -5,27 +5,12 @@ from typing import AsyncGenerator
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from prometheus_client import Counter, Histogram, generate_latest, REGISTRY
 
 from app.core.config import get_settings
 from app.core.database import init_db
 from app.core.redis import init_redis, close_redis
 
 settings = get_settings()
-
-# Prometheus metrics
-REQUEST_COUNT = Counter(
-    "ai_gateway_requests_total", "Total requests", ["method", "endpoint", "status"]
-)
-REQUEST_LATENCY = Histogram(
-    "ai_gateway_request_duration_ms", "Request latency in ms", ["method", "endpoint"]
-)
-SSE_STREAM_COUNT = Counter(
-    "ai_gateway_sse_streams_total", "Total SSE streams", ["model"]
-)
-TOKEN_USAGE = Counter(
-    "ai_gateway_tokens_total", "Total tokens processed", ["model", "type"]
-)
 
 
 @asynccontextmanager
@@ -56,26 +41,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-# Request metrics middleware
-@app.middleware("http")
-async def metrics_middleware(request: Request, call_next):
-    start = time.time()
-    response = await call_next(request)
-    duration = int((time.time() - start) * 1000)
-
-    REQUEST_COUNT.labels(
-        method=request.method,
-        endpoint=request.url.path,
-        status=response.status_code,
-    ).inc()
-    REQUEST_LATENCY.labels(
-        method=request.method,
-        endpoint=request.url.path,
-    ).observe(duration)
-
-    return response
 
 
 # Health check endpoints
@@ -125,14 +90,6 @@ async def readiness():
         "redis": "ok",
         "timestamp": time.time(),
     }
-
-
-# Prometheus metrics endpoint
-@app.get("/metrics")
-async def metrics():
-    """Prometheus metrics endpoint."""
-    from fastapi.responses import PlainTextResponse
-    return PlainTextResponse(generate_latest(REGISTRY).decode("utf-8"))
 
 
 # Import and register API routers
