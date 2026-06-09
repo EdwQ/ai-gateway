@@ -95,6 +95,9 @@ export const deleteProvider = (id: string) =>
 export const checkProviderHealth = (id: string) =>
   api.post(`/api/v1/admin/providers/${id}/check`);
 
+export const discoverModels = (baseUrl: string, apiKey: string) =>
+  api.post('/api/v1/admin/providers/discover-models', { base_url: baseUrl, api_key: apiKey });
+
 // Stats APIs
 export const getDashboard = () => api.get('/api/v1/stats/dashboard');
 

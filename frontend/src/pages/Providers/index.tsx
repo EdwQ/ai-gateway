@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Input, InputNumber, Tag, Space, message, Tooltip, Select } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, HeartOutlined } from '@ant-design/icons';
-import { getProviders, createProvider, updateProvider, deleteProvider, checkProviderHealth } from '../../api/client';
+import { getProviders, createProvider, updateProvider, deleteProvider, checkProviderHealth, discoverModels } from '../../api/client';
 
 const statusColors: Record<string, string> = {
   healthy: 'green',
@@ -94,6 +94,27 @@ export default function Providers() {
     }
   };
 
+  const handleDiscoverModels = async () => {
+    const baseUrl = form.getFieldValue('base_url');
+    const apiKey = form.getFieldValue('api_key');
+    if (!baseUrl || !apiKey) {
+      message.warning('请先填写 Base URL 和 API Key');
+      return;
+    }
+    try {
+      const res = await discoverModels(baseUrl, apiKey);
+      const models = res.data.models || [];
+      if (models.length === 0) {
+        message.warning(`未获取到模型列表${res.data.error ? '：' + res.data.error : ''}`);
+        return;
+      }
+      form.setFieldsValue({ models });
+      message.success(`获取到 ${models.length} 个模型`);
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || '获取模型列表失败');
+    }
+  };
+
   const columns = [
     { title: '名称', dataIndex: 'display_name', key: 'display_name' },
     {
@@ -152,8 +173,17 @@ export default function Providers() {
           <Form.Item name="api_key" label="API Key" rules={editingProvider ? [] : [{ required: true }]}>
             <Input.Password placeholder={editingProvider ? '留空则不修改' : 'sk-...'} />
           </Form.Item>
-          <Form.Item name="models" label="模型列表">
-            <Select mode="tags" placeholder="输入模型名后回车" />
+          <Form.Item label="模型列表">
+            <Space.Compact block>
+              <Form.Item name="models" noStyle>
+                <Select mode="tags" placeholder="输入模型名后回车" style={{ flex: 1 }} />
+              </Form.Item>
+              <Tooltip title="从 Provider 自动获取模型列表">
+                <Button icon={<HeartOutlined />} onClick={handleDiscoverModels}>
+                  获取模型
+                </Button>
+              </Tooltip>
+            </Space.Compact>
           </Form.Item>
           <Form.Item name="priority" label="优先级">
             <InputNumber min={1} max={999} style={{ width: '100%' }} />

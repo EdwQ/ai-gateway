@@ -2,6 +2,7 @@ import uuid
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +36,7 @@ async def list_providers(
     )
     providers = result.scalars().all()
     return ProviderListResponse(
-        items=[ProviderResponse.model_validate(p) for p in providers]
+        items=[_provider_to_response(p) for p in providers]
     )
 
 
@@ -60,7 +61,36 @@ async def create_provider(
     )
     db.add(provider)
     await db.flush()
-    return ProviderResponse.model_validate(provider)
+    return ProviderResponse(
+        id=str(provider.id),
+        name=provider.name,
+        display_name=provider.display_name,
+        base_url=provider.base_url,
+        models=provider.models or [],
+        is_active=provider.is_active,
+        priority=provider.priority,
+        health_status=provider.health_status,
+        rate_limit_qps=provider.rate_limit_qps,
+        created_at=provider.created_at,
+        updated_at=provider.updated_at,
+    )
+
+
+def _provider_to_response(p: Provider) -> ProviderResponse:
+    """Convert SQLAlchemy Provider model to ProviderResponse with UUID→str."""
+    return ProviderResponse(
+        id=str(p.id),
+        name=p.name,
+        display_name=p.display_name,
+        base_url=p.base_url,
+        models=p.models or [],
+        is_active=p.is_active,
+        priority=p.priority,
+        health_status=p.health_status,
+        rate_limit_qps=p.rate_limit_qps,
+        created_at=p.created_at,
+        updated_at=p.updated_at,
+    )
 
 
 @router.put("/{provider_id}", response_model=ProviderResponse)
@@ -92,7 +122,7 @@ async def update_provider(
             setattr(provider, key, value)
 
     await db.flush()
-    return ProviderResponse.model_validate(provider)
+    return _provider_to_response(provider)
 
 
 @router.delete("/{provider_id}")
@@ -164,3 +194,46 @@ async def check_provider_health(
             status=f"down ({str(e)[:100]})",
             latency_ms=0,
         )
+
+
+class DiscoverModelsRequest(BaseModel):
+    base_url: str
+    api_key: str
+
+
+@router.post("/discover-models", response_model=dict)
+async def discover_provider_models(
+    body: DiscoverModelsRequest,
+    current_user: User = Depends(require_role(["admin", "super_admin"])),
+):
+    """Fetch available models from a provider's /v1/models endpoint."""
+    import time
+
+    base_url = body.base_url.rstrip("/")
+    start = time.time()
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{base_url}/v1/models",
+                headers={"Authorization": f"Bearer {body.api_key}"},
+            )
+            latency = int((time.time() - start) * 1000)
+
+            if resp.status_code == 200:
+                data = resp.json()
+                models = data.get("data", [])
+                # Extract model IDs from various response formats
+                # OpenAI format: {"data": [{"id": "gpt-4o", ...}, ...]}
+                # Some providers return: {"data": ["model1", "model2"]}
+                model_ids = []
+                for m in models:
+                    if isinstance(m, dict):
+                        model_ids.append(m.get("id", ""))
+                    elif isinstance(m, str):
+                        model_ids.append(m)
+                return {"models": [m for m in model_ids if m], "latency_ms": latency}
+            else:
+                return {"models": [], "latency_ms": latency, "error": f"HTTP {resp.status_code}"}
+
+    except Exception as e:
+        return {"models": [], "latency_ms": 0, "error": str(e)[:200]}
