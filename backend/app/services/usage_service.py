@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import select, func, case
+from sqlalchemy import select, func, case, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.usage import UsageLog
@@ -114,8 +114,12 @@ class UsageService:
         """Get monthly usage statistics."""
         since = date.today() - timedelta(days=months * 30)
 
+        # Use literal() to force 'month' as inline SQL string, not bind parameter
+        # PostgreSQL needs identical expressions in SELECT and GROUP BY
+        trunc = func.date_trunc(literal("month"), UsageLog.created_at)
+
         query = select(
-            func.date_trunc("month", UsageLog.created_at).label("month"),
+            trunc.label("month"),
             func.coalesce(func.sum(UsageLog.total_tokens), 0).label("tokens"),
             func.coalesce(func.sum(UsageLog.cost_rmb), 0).label("cost"),
             func.count(UsageLog.id).label("requests"),
@@ -124,9 +128,7 @@ class UsageService:
             UsageLog.is_success == True,  # noqa: E712
         )
 
-        query = query.group_by(func.date_trunc("month", UsageLog.created_at)).order_by(
-            func.date_trunc("month", UsageLog.created_at)
-        )
+        query = query.group_by(trunc).order_by(trunc)
         result = await db.execute(query)
         return [
             {
