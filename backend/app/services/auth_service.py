@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any
 
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -40,6 +40,13 @@ class AuthService:
 
         # Auto-register if first login
         if user is None:
+            # First registered user becomes super_admin
+            count_result = await db.execute(
+                select(func.count()).select_from(User)
+            )
+            user_count = count_result.scalar() or 0
+            role = "super_admin" if user_count == 0 else "employee"
+
             user = User(
                 id=uuid.uuid4(),
                 union_id=union_id,
@@ -52,7 +59,7 @@ class AuthService:
                 else None,
                 department_name=await self._get_dept_name(dt_user),
                 title=dt_user.get("title"),
-                role="employee",
+                role=role,
                 is_active=True,
                 quota_balance=Decimal(str(settings.DEFAULT_QUOTA_AMOUNT)),
                 quota_used=Decimal("0"),
