@@ -1,18 +1,20 @@
 # AI Gateway - 企业 AI 能力平台
 
 > 公司内部统一 AI API Gateway，支持钉钉 SSO 登录、统一 API 管理、成本统计与审计。
+>
+> 核心代理层使用 Rust 重写，较 Python 版内存占用降低 5-10 倍。
 
 ---
 
 ## 目录
 
 - [快速开始](#快速开始)
+- [系统架构](#系统架构)
 - [系统配置](#系统配置)
 - [开发指南](#开发指南)
 - [API 文档](#api-文档)
 - [前端使用指南](#前端使用指南)
 - [部署指南](#部署指南)
-- [监控与运维](#监控与运维)
 - [常见问题](#常见问题)
 
 ---
@@ -22,13 +24,13 @@
 ### 前置条件
 
 - Docker & Docker Compose（推荐）
-- 或 Python 3.12+ & Node.js 20+（本地开发）
+- 或 Rust 1.81+ & Python 3.12+ & Node.js 20+（本地开发）
 
 ### 方式一：Docker 一键部署（推荐）
 
 ```bash
 # 1. 克隆项目
-cd /Users/qihe/projects/ai-gateway
+cd ai-gateway
 
 # 2. 配置环境变量
 cp backend/.env.example backend/.env
@@ -38,10 +40,9 @@ cp backend/.env.example backend/.env
 docker compose up -d
 
 # 4. 访问
-# 前端管理后台: http://localhost:3000
-# API 文档:      http://localhost:8000/docs
-# Prometheus:    http://localhost:9090
-# Grafana:       http://localhost:3001 (admin/admin)
+# AI Gateway（OpenAI 兼容接口）: http://localhost:2887/v1
+# 管理后台:        http://localhost:3000
+# API 文档:        http://localhost:8001/docs
 ```
 
 ### 方式二：本地开发模式
@@ -53,7 +54,16 @@ docker compose -f docker-compose.dev.yml up -d
 # 启动 PostgreSQL (5432) + Redis (6379)
 ```
 
-**启动后端：**
+**启动 Rust 代理层（热点路径）：**
+
+```bash
+cd backend-rs
+cargo run
+# 监听 http://localhost:2887
+# 处理 /v1/chat/completions, /v1/embeddings, /v1/models, /health/*
+```
+
+**启动 Python 管理层：**
 
 ```bash
 cd backend
@@ -70,7 +80,7 @@ pip install -r requirements.txt
 python3 -c "import asyncio; from app.core.database import init_db; asyncio.run(init_db())"
 
 # 启动开发服务器（热重载）
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 ```
 
 **启动前端：**
@@ -80,6 +90,44 @@ cd frontend
 npm install
 npm run dev
 # 访问 http://localhost:5173
+```
+
+---
+
+## 系统架构
+
+```
+┌─────────────────────────────────────────────────┐
+│  客户端 (OpenAI SDK / Cursor / Cherry Studio)    │
+│  base_url = http://your-gateway:2887/v1          │
+└──────────────────────┬──────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────┐
+│  Rust 代理层 (backend-rs/)          端口 :2887    │
+│  ├─ /v1/chat/completions   流式/非流式转发       │
+│  ├─ /v1/embeddings         向量转发               │
+│  ├─ /v1/models             模型列表               │
+│  └─ /health/*              健康检查               │
+└──────────────────────┬──────────────────────────┘
+                       │
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+   ┌──────────┐ ┌──────────┐ ┌──────────┐
+   │ 上游 AI  │ │ Redis    │ │PostgreSQL│
+   │ Provider │ │ 限流/缓存│ │ 持久化   │
+   └──────────┘ └──────────┘ └──────────┘
+                       ▲
+                       │
+┌──────────────────────────────────────────────────┐
+│  Python 管理层 (backend/)           端口 8001     │
+│  ├─ /api/v1/auth/*        钉钉 SSO 登录          │
+│  ├─ /api/v1/users/*       用户管理               │
+│  ├─ /api/v1/tokens/*      API Token 管理         │
+│  ├─ /api/v1/admin/*       Provider 管理          │
+│  ├─ /api/v1/stats/*       数据统计               │
+│  └─ /api/v1/audit/*       审计日志               │
+└──────────────────────────────────────────────────┘
 ```
 
 ---
@@ -114,14 +162,14 @@ npm run dev
 
 ### 模型价格配置
 
-价格表位于 `backend/app/services/gateway_service.py` 中的 `MODEL_PRICES` 字典，格式为：
+价格表位于 `backend-rs/src/proxy.rs` 中的 `MODEL_PRICES` 常量，格式为：
 
-```python
-MODEL_PRICES = {
-    "gpt-4o": (2.50, 10.00),      # (输入 $/M tokens, 输出 $/M tokens)
-    "deepseek-chat": (0.14, 0.28),
-    # ...
-}
+```rust
+const MODEL_PRICES: &[(&str, f64, f64)] = &[
+    ("gpt-4o", 2.50, 10.00),       // (输入 $/M tokens, 输出 $/M tokens)
+    ("deepseek-chat", 0.14, 0.28),
+    // ...
+];
 ```
 
 按 1 USD = 7.25 RMB 汇率自动换算，可在代码中调整 `USD_TO_RMB` 常量。
@@ -134,28 +182,42 @@ MODEL_PRICES = {
 
 ```
 ai-gateway/
-├── backend/
-│   ├── app/
-│   │   ├── api/v1/          # API 路由
-│   │   ├── core/            # 核心模块（配置、安全、数据库）
-│   │   ├── models/          # SQLAlchemy 数据模型
-│   │   ├── schemas/         # Pydantic 请求/响应模型
-│   │   ├── services/        # 业务逻辑层
-│   │   ├── middleware/      # 中间件（限流、日志脱敏）
-│   │   ├── utils/           # 工具函数
-│   │   └── main.py          # 应用入口
-│   ├── alembic/             # 数据库迁移
-│   ├── tests/               # 测试
-│   └── Dockerfile
-├── frontend/
+├── backend-rs/                    # Rust 代理层（热点路径）
 │   ├── src/
-│   │   ├── api/             # API 客户端 & Auth 上下文
-│   │   ├── pages/           # 页面组件
-│   │   └── App.tsx          # 路由 & 布局
+│   │   ├── main.rs               # 入口：axum 服务器启动
+│   │   ├── config.rs             # 配置
+│   │   ├── db.rs                 # PostgreSQL 连接
+│   │   ├── redis.rs              # Redis 连接
+│   │   ├── models.rs             # 数据模型
+│   │   ├── auth.rs               # API Token 验证
+│   │   ├── rate_limit.rs         # Redis 限流
+│   │   ├── proxy.rs              # 核心代理逻辑
+│   │   └── routes/
+│   │       ├── gateway.rs        # /v1/chat/completions 等
+│   │       └── health.rs         # /health/*
+│   ├── Cargo.toml
 │   └── Dockerfile
-├── docker-compose.yml       # 生产部署
-├── docker-compose.dev.yml   # 本地开发
-└── prometheus/              # 监控配置
+├── backend/                       # Python 管理层
+│   ├── app/
+│   │   ├── api/v1/               # 管理 API 路由
+│   │   ├── core/                 # 核心模块（配置、安全、数据库）
+│   │   ├── models/               # SQLAlchemy 数据模型
+│   │   ├── schemas/              # Pydantic 请求/响应模型
+│   │   ├── services/             # 业务逻辑层
+│   │   ├── middleware/           # 中间件
+│   │   └── main.py               # 应用入口
+│   ├── alembic/                  # 数据库迁移
+│   ├── tests/                    # 测试
+│   └── Dockerfile
+├── frontend/                      # 前端管理后台
+│   ├── src/
+│   │   ├── api/                  # API 客户端 & Auth
+│   │   ├── pages/                # 页面组件
+│   │   └── App.tsx               # 路由 & 布局
+│   ├── nginx.conf
+│   └── Dockerfile
+├── docker-compose.yml             # 生产部署
+└── docker-compose.dev.yml         # 本地开发
 ```
 
 ### 数据库迁移
@@ -288,6 +350,8 @@ Authorization: Bearer <access_token>
 
 ### AI Gateway（OpenAI 兼容接口）
 
+由 Rust 代理层处理，入口端口 **2887**。
+
 #### Chat Completions
 
 ```http
@@ -312,7 +376,7 @@ from openai import OpenAI
 
 client = OpenAI(
     api_key="sk-company-xxxxx...",
-    base_url="http://your-gateway:8000/v1"
+    base_url="http://your-gateway:2887/v1"
 )
 
 response = client.chat.completions.create(
@@ -347,7 +411,7 @@ Content-Type: application/json
 
 ### 管理 API
 
-需 `admin` / `super_admin` / `finance` 角色（取决于接口）。
+需 `admin` / `super_admin` / `finance` 角色（取决于接口）。由 Python 管理层处理。
 
 #### 用户管理
 
@@ -427,7 +491,7 @@ GET /api/v1/stats/export?month=2026-06
 2. 点击「创建 Token」按钮
 3. 输入名称（可选），点击确定
 4. **立即复制并保存 Token**（关闭弹窗后不再显示）
-5. 在 OpenAI SDK 中使用该 Token 调用 AI 接口
+5. 在 OpenAI SDK 中使用该 Token 调用 AI 接口（`base_url=http://your-gateway:2887/v1`）
 
 ### 管理 Provider
 
@@ -466,8 +530,8 @@ export DINGTALK_APP_SECRET="your-app-secret"
 docker compose up -d --build
 
 # 3. 验证
-curl http://localhost:8000/health/liveness
-curl http://localhost:8000/health/readiness
+curl http://localhost:2887/health/liveness
+curl http://localhost:2887/health/readiness
 ```
 
 ### 环境要求
@@ -475,57 +539,17 @@ curl http://localhost:8000/health/readiness
 | 组件 | 最低配置 | 推荐配置 |
 |:---|:---|:---|
 | CPU | 2 核 | 4 核 |
-| 内存 | 4 GB | 8 GB |
+| 内存 | 2 GB | 4 GB |
 | 磁盘 | 20 GB | 50 GB |
 | Docker | 24+ | 最新版 |
 
 ### 性能建议
 
+- Rust 代理层单二进制无依赖，内存占用约 10-20 MB
 - PostgreSQL：建议开启 `pg_stat_statements` 用于查询分析
 - Redis：建议部署集群模式以支持高可用
-- Backend：可通过 `--workers` 参数调整 Worker 数，建议为 CPU 核数 × 2
 - Provider Key：建议为每个 Provider 配置多个 Key，系统自动轮询和故障切换
-
----
-
-## 监控与运维
-
-### 健康检查
-
-```bash
-# Liveness Probe（存活检查）
-curl http://localhost:8000/health/liveness
-# → {"status": "alive", "timestamp": ...}
-
-# Readiness Probe（就绪检查）
-curl http://localhost:8000/health/readiness
-# → {"status": "ready", "database": "ok", "redis": "ok", ...}
-```
-
-### Prometheus 指标
-
-`GET /metrics` 暴露以下指标：
-
-| 指标名 | 类型 | 标签 | 说明 |
-|:---|:---:|:---|:---|
-| `ai_gateway_requests_total` | Counter | method, endpoint, status | 请求总数 |
-| `ai_gateway_request_duration_ms` | Histogram | method, endpoint | 请求延迟 |
-| `ai_gateway_sse_streams_total` | Counter | model | SSE 流数 |
-| `ai_gateway_tokens_total` | Counter | model, type | Token 用量 |
-
-### 日志脱敏
-
-系统自动对以下敏感信息进行脱敏处理：
-
-| 类型 | 示例 | 脱敏后 |
-|:---|:---|:---|
-| Authorization 头 | `Bearer sk-company-xxx` | `Bearer ***` |
-| 手机号 | `13800138000` | `138****8000` |
-| 身份证 | `110101199001011234` | `110101********1234` |
-| 邮箱 | `zhangsan@company.com` | `z****n@company.com` |
-| 银行卡 | `6222021234561234` | `6222********1234` |
-
-执行 `docker compose logs -f` 可实时查看日志，日志中不包含任何明文敏感信息。
+- 管理 API（Python）可通过 `--workers` 参数调整 Worker 数，建议为 CPU 核数 × 2
 
 ---
 
@@ -540,7 +564,7 @@ curl http://localhost:8000/health/readiness
 pip install openai
 python -c "
 from openai import OpenAI
-client = OpenAI(api_key='sk-company-xxx', base_url='http://localhost:8000/v1')
+client = OpenAI(api_key='sk-company-xxx', base_url='http://localhost:2887/v1')
 models = client.models.list()
 print('Models:', [m.id for m in models])
 "
@@ -557,7 +581,7 @@ print('Models:', [m.id for m in models])
 3. 在 Provider 管理页面点击健康检查查看详细错误信息
 
 ### Q: 额度消耗不准确？
-额度基于模型价格表计算。如需调整，修改 `gateway_service.py` 中的 `MODEL_PRICES` 字典。
+额度基于模型价格表计算。如需调整，修改 `backend-rs/src/proxy.rs` 中的 `MODEL_PRICES` 常量。
 
 ### Q: 如何重置所有数据？
 ```bash

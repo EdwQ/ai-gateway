@@ -1,0 +1,49 @@
+[package]
+name = "ai-gateway-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Web framework
+axum = { version = "0.8", features = ["macros"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.6", features = ["cors"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Async PostgreSQL
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono", "json", "bigdecimal"] }
+
+# Redis
+redis = { version = "0.28", features = ["tokio-comp"] }
+
+# Crypto
+sha2 = "0.10"
+hex = "0.4"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "stream"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Config
+dotenvy = "0.15"
+
+# Decimal for currency
+rust_decimal = { version = "1", features = ["serde"] }
+
+# Base64
+base64 = "0.22"
+
+# AES-GCM
+aes-gcm = "0.10"
+
+# Futures
+futures = "0.3"

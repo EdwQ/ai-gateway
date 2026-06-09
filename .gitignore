@@ -41,3 +41,6 @@ logs/
 # Build output
 frontend/dist/
 backend/app/static/
+
+# Rust build
+target/
