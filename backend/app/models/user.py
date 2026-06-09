@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, DateTime, Numeric, String, func
+from sqlalchemy import Boolean, DateTime, JSON, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from decimal import Decimal
 from sqlalchemy.orm import Mapped, mapped_column, relationship

@@ -136,8 +136,12 @@ async def list_models(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user_from_api_token),
 ):
-    """OpenAI-compatible models list endpoint."""
-    models = await gateway_service.list_models(db)
+    """OpenAI-compatible models list endpoint.
+    
+    Regular users see only their allowed model aliases.
+    Admin users see all real models from providers.
+    """
+    models = await gateway_service.list_models(db, user=current_user)
     now = int(time.time())
     return ModelListResponse(
         data=[

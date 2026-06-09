@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.security import decrypt_value
+from app.models.alias import ModelAlias
 from app.models.provider import Provider, ProviderKey
 from app.models.usage import UsageLog
 from app.models.user import User
@@ -127,6 +128,36 @@ class GatewayService:
         self._key_index[str(provider_id)] = idx + 1
         return available[idx]
 
+    async def _resolve_alias(
+        self, db: AsyncSession, model: str
+    ) -> str:
+        """Resolve a model alias to the real model name.
+        
+        If the model name matches an alias, returns the target model.
+        Otherwise returns the original model name.
+        """
+        result = await db.execute(
+            select(ModelAlias).where(
+                ModelAlias.alias_name == model,
+                ModelAlias.is_active == True,  # noqa: E712
+            )
+        )
+        alias = result.scalar_one_or_none()
+        return alias.target_model if alias else model
+
+    async def _check_user_allowed(
+        self, user: User, model: str, db: AsyncSession
+    ) -> None:
+        """Check if user is allowed to use this model (alias)."""
+        if user.role in ("admin", "super_admin", "finance"):
+            return  # Admins can use any model
+        allowed = user.allowed_models or []
+        if allowed and model not in allowed:
+            raise ValueError(
+                f"Model '{model}' is not in your allowed models list. "
+                f"Allowed: {', '.join(allowed)}"
+            )
+
     async def chat_completion(
         self,
         db: AsyncSession,
@@ -137,9 +168,16 @@ class GatewayService:
         **kwargs,
     ) -> dict | AsyncGenerator[bytes, None]:
         """Proxy chat completion to provider."""
-        provider = await self._get_provider(db, model)
+        # Step 1: Check user's allowed models
+        await self._check_user_allowed(user, model, db)
+
+        # Step 2: Resolve alias -> real model name
+        real_model = await self._resolve_alias(db, model)
+
+        # Step 3: Find provider for the real model
+        provider = await self._get_provider(db, real_model)
         if not provider:
-            raise ValueError(f"No active provider found for model: {model}")
+            raise ValueError(f"No active provider found for model: {real_model}")
 
         key_result = await self._get_next_key(db, str(provider.id))
         if not key_result:
@@ -155,7 +193,7 @@ class GatewayService:
         }
 
         body = {
-            "model": model,
+            "model": real_model,
             "messages": messages,
             "stream": stream,
         }
@@ -321,8 +359,32 @@ class GatewayService:
 
         await db.flush()
 
-    async def list_models(self, db: AsyncSession) -> list[str]:
-        """List all available models from active providers."""
+    async def list_models(
+        self, db: AsyncSession, user: Optional[User] = None
+    ) -> list[str]:
+        """List available models.
+        
+        For admin/super_admin: returns all real models from providers.
+        For regular users: returns their allowed model aliases.
+        """
+        if user and user.role not in ("admin", "super_admin", "finance"):
+            # Return user's allowed aliases
+            allowed = user.allowed_models or []
+            if not allowed:
+                return []
+            # Resolve aliases to check which are active
+            result = await db.execute(
+                select(ModelAlias).where(
+                    ModelAlias.alias_name.in_(allowed),
+                    ModelAlias.is_active == True,  # noqa: E712
+                )
+            )
+            aliases = result.scalars().all()
+            # Return alias names that are active
+            active_aliases = {a.alias_name for a in aliases}
+            return [m for m in allowed if m in active_aliases]
+
+        # Admin: return all real models from providers
         result = await db.execute(
             select(Provider).where(Provider.is_active == True)  # noqa: E712
         )

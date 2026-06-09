@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Select, InputNumber, Tag, Space, message, Input } from 'antd';
 import { EditOutlined, SearchOutlined } from '@ant-design/icons';
-import { getUsers, updateUser } from '../../api/client';
+import { getUsers, updateUser, getAliases } from '../../api/client';
 
 const roleLabels: Record<string, string> = {
   employee: '员工',
@@ -18,6 +18,7 @@ export default function Users() {
   const [search, setSearch] = useState('');
   const [editModal, setEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  const [allAliases, setAllAliases] = useState<any[]>([]);
   const [form] = Form.useForm();
 
   const loadUsers = async () => {
@@ -36,6 +37,13 @@ export default function Users() {
   };
 
   useEffect(() => { loadUsers(); }, [page]);
+
+  // Load available model aliases for the allowed_models selector
+  useEffect(() => {
+    getAliases().then(res => {
+      setAllAliases(res.data.items || []);
+    }).catch(() => {});
+  }, []);
 
   const handleEdit = (user: any) => {
     setEditingUser(user);
@@ -67,6 +75,8 @@ export default function Users() {
       title: '状态', dataIndex: 'is_active', key: 'is_active',
       render: (v: boolean) => v ? <Tag color="green">启用</Tag> : <Tag color="red">禁用</Tag>,
     },
+    { title: '可用模型', dataIndex: 'allowed_models', key: 'allowed_models',
+      render: (v: string[]) => (v || []).length ? v.join(', ') : '全部' },
     { title: '额度 (¥)', dataIndex: 'quota_balance', key: 'quota_balance', render: (v: number) => `¥${v.toFixed(2)}` },
     { title: '已用 (¥)', dataIndex: 'quota_used', key: 'quota_used', render: (v: number) => `¥${v.toFixed(2)}` },
     {
@@ -134,6 +144,15 @@ export default function Users() {
           </Form.Item>
           <Form.Item name="quota_balance" label="额度 (¥)">
             <InputNumber min={0} step={10} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="allowed_models" label="可用模型（留空则不限制）">
+            <Select mode="tags" placeholder="选择用户可用的模型别名">
+              {allAliases.filter(a => a.is_active).map(a => (
+                <Select.Option key={a.alias_name} value={a.alias_name}>
+                  {a.alias_name} → {a.target_model}
+                </Select.Option>
+              ))}
+            </Select>
           </Form.Item>
         </Form>
       </Modal>

@@ -98,6 +98,18 @@ export const checkProviderHealth = (id: string) =>
 export const discoverModels = (baseUrl: string, apiKey: string) =>
   api.post('/api/v1/admin/providers/discover-models', { base_url: baseUrl, api_key: apiKey });
 
+// Model Alias APIs
+export const getAliases = () => api.get('/api/v1/admin/model-aliases');
+
+export const createAlias = (data: Record<string, unknown>) =>
+  api.post('/api/v1/admin/model-aliases', data);
+
+export const updateAlias = (id: string, data: Record<string, unknown>) =>
+  api.put(`/api/v1/admin/model-aliases/${id}`, data);
+
+export const deleteAlias = (id: string) =>
+  api.delete(`/api/v1/admin/model-aliases/${id}`);
+
 // Stats APIs
 export const getDashboard = () => api.get('/api/v1/stats/dashboard');
 

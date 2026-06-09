@@ -15,6 +15,7 @@ class UserResponse(BaseModel):
     department_name: Optional[str] = None
     title: Optional[str] = None
     role: str
+    allowed_models: list[str] = []
     is_active: bool
     quota_balance: Decimal
     quota_used: Decimal
@@ -38,3 +39,4 @@ class UserUpdateRequest(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
     quota_balance: Optional[Decimal] = None
+    allowed_models: Optional[list[str]] = None

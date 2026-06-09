@@ -136,7 +136,7 @@ async def metrics():
 
 
 # Import and register API routers
-from app.api.v1 import auth, users, tokens, gateway, providers, stats, audit
+from app.api.v1 import auth, users, tokens, gateway, providers, stats, audit, aliases
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
@@ -145,6 +145,7 @@ app.include_router(gateway.router, prefix="")
 app.include_router(providers.router, prefix="/api/v1")
 app.include_router(stats.router, prefix="/api/v1")
 app.include_router(audit.router, prefix="/api/v1")
+app.include_router(aliases.router, prefix="/api/v1")
 
 
 @app.get("/")

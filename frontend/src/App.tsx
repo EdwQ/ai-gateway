@@ -21,6 +21,7 @@ import {
   UserOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  TagsOutlined,
 } from '@ant-design/icons';
 import { AuthProvider, useAuth } from './api/auth';
 import Dashboard from './pages/Dashboard';
@@ -30,6 +31,7 @@ import Providers from './pages/Providers';
 import Users from './pages/Users';
 import Audit from './pages/Audit';
 import Stats from './pages/Stats';
+import ModelAliases from './pages/Aliases';
 
 const { Header, Sider, Content } = Layout;
 
@@ -63,6 +65,7 @@ function AppLayout() {
     { key: '/tokens', icon: <KeyOutlined />, label: 'API Token' },
     ...(isAdmin ? [
       { key: '/providers', icon: <CloudServerOutlined />, label: 'Provider 管理' },
+      { key: '/model-aliases', icon: <TagsOutlined />, label: '模型别名' },
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
       { key: '/audit', icon: <AuditOutlined />, label: '审计日志' },
       { key: '/stats', icon: <BarChartOutlined />, label: '数据统计' },
@@ -134,6 +137,7 @@ function AppLayout() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/tokens" element={<Tokens />} />
             {isAdmin && <Route path="/providers" element={<Providers />} />}
+            {isAdmin && <Route path="/model-aliases" element={<ModelAliases />} />}
             {isAdmin && <Route path="/users" element={<Users />} />}
             {isAdmin && <Route path="/audit" element={<Audit />} />}
             {isAdmin && <Route path="/stats" element={<Stats />} />}

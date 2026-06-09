@@ -5,6 +5,7 @@ from app.models.department import Department
 from app.models.provider import Provider, ProviderKey
 from app.models.usage import UsageLog
 from app.models.audit import AuditLog, PromptAudit
+from app.models.alias import ModelAlias
 
 __all__ = [
     "Base",
@@ -17,4 +18,5 @@ __all__ = [
     "UsageLog",
     "AuditLog",
     "PromptAudit",
+    "ModelAlias",
 ]
