@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, declared_attr
@@ -18,7 +18,7 @@ class TimestampMixin:
     @declared_attr
     def updated_at(cls) -> Mapped[datetime | None]:
         return mapped_column(
-            DateTime(timezone=True), onupdate=func.now(), nullable=True
+            DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc), default=None, nullable=True
         )
 
 

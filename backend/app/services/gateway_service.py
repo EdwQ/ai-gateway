@@ -96,7 +96,10 @@ class GatewayService:
     async def _get_next_key(
         self, db: AsyncSession, provider_id: str
     ) -> Optional[tuple[ProviderKey, Provider]]:
-        """Get next available key using round-robin with failover."""
+        """Get next available key using round-robin with failover.
+        
+        Falls back to provider.api_key_encrypted if no ProviderKey records exist.
+        """
         result = await db.execute(
             select(ProviderKey, Provider)
             .join(Provider, ProviderKey.provider_id == Provider.id)
@@ -108,6 +111,23 @@ class GatewayService:
         keys = result.all()
 
         if not keys:
+            # Fallback: use provider.api_key_encrypted directly
+            result = await db.execute(
+                select(Provider).where(Provider.id == provider_id)
+            )
+            provider = result.scalar_one_or_none()
+            if provider and provider.api_key_encrypted:
+                # Create a transient ProviderKey object (not added to session)
+                virtual_key = ProviderKey(
+                    id=uuid.uuid4(),
+                    provider_id=provider.id,
+                    key_encrypted=provider.api_key_encrypted,
+                    is_active=True,
+                    weight=1,
+                    fail_count=0,
+                    max_fail_count=3,
+                )
+                return virtual_key, provider
             return None
 
         # Filter out failed keys
