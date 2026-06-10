@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+use sqlx::types::BigDecimal;
 use uuid::Uuid;
 
 /// User model matching Python `app/models/user.py`
@@ -17,8 +18,8 @@ pub struct User {
     pub title: Option<String>,
     pub role: String,
     pub is_active: bool,
-    pub quota_balance: f64,
-    pub quota_used: f64,
+    pub quota_balance: BigDecimal,
+    pub quota_used: BigDecimal,
     pub last_login_at: Option<DateTime<Utc>>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
@@ -67,7 +68,7 @@ pub struct UsageLog {
     pub prompt_tokens: i32,
     pub completion_tokens: i32,
     pub total_tokens: i32,
-    pub cost_rmb: f64,
+    pub cost_rmb: BigDecimal,
     pub duration_ms: i32,
     pub is_stream: bool,
     pub is_success: bool,
