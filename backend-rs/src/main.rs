@@ -92,6 +92,7 @@ async fn main() {
         .route("/api/v1/auth/dingtalk/qrcode", post(auth_routes::dingtalk_qrcode))
         .route("/api/v1/auth/dingtalk/callback", get(auth_routes::dingtalk_callback_get).post(auth_routes::dingtalk_callback_post))
         .route("/api/v1/auth/dev/login", post(auth_routes::dev_login))
+        .route("/api/v1/auth/init", post(auth_routes::init_admin))
         .route("/api/v1/auth/refresh", post(auth_routes::refresh_token))
         .route("/api/v1/auth/logout", post(auth_routes::logout))
         .route("/api/v1/auth/me", get(auth_routes::me))

@@ -87,11 +87,14 @@ cp .env.example .env
 # 3. 启动
 docker compose up -d --build
 
-# 4. 验证
+# 4. 初始化系统（首次部署，创建第一个超级管理员）
+curl -X POST http://localhost:2887/api/v1/auth/init
+
+# 5. 验证
 curl http://localhost:2887/health/liveness
 # → {"status":"alive","timestamp":...}
 
-# 5. 开发模式下快速登录（获取 JWT）
+# 6. 开发模式下快速登录（获取 JWT）
 curl -X POST http://localhost:2887/api/v1/auth/dev/login
 # → {"access_token":"eyJ...","user":{"role":"admin",...}}
 ```
@@ -240,6 +243,7 @@ Cursor / Cherry Studio / OpenWebUI 等工具配置：
 
 | 端点 | 方法 | 角色 | 说明 |
 |------|------|------|------|
+| `/api/v1/auth/init` | POST | - | 初始化系统，创建第一个超级管理员（仅可调用一次） |
 | `/api/v1/auth/dev/login` | POST | - | 开发模式登录 |
 | `/api/v1/auth/me` | GET | * | 当前用户信息 |
 | `/api/v1/auth/refresh` | POST | - | 刷新 JWT |

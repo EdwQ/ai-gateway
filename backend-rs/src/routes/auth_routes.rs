@@ -467,6 +467,90 @@ pub async fn me(
     }
 }
 
+/// POST /api/v1/auth/init
+///
+/// 初始化系统：创建第一个超级管理员。
+/// 仅在系统中没有任何 admin / super_admin 用户时可调用。
+/// 成功返回 JWT Token，后续不再可用。
+pub async fn init_admin(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let config = &*state.config;
+
+    // 检查是否已有管理员
+    let admin_count: (i64,) = match sqlx::query_as(
+        "SELECT COUNT(*) FROM users WHERE role IN ('admin', 'super_admin')"
+    )
+    .fetch_one(&state.db.pool)
+    .await
+    {
+        Ok(c) => c,
+        Err(e) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+                "detail": format!("DB error: {}", e)
+            }))).into_response()
+        }
+    };
+
+    if admin_count.0 > 0 {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
+            "detail": "系统已初始化，已有管理员用户。如需重置请联系现有管理员。"
+        }))).into_response();
+    }
+
+    // 创建第一个管理员
+    let user_id = Uuid::new_v4();
+    let now = Utc::now();
+
+    let result = sqlx::query(
+        "INSERT INTO users (id, union_id, user_id, name, email, department_id, \
+         department_name, title, role, is_active, quota_balance, quota_used, \
+         last_login_at, created_at) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)"
+    )
+    .bind(user_id)
+    .bind(format!("init-{}", user_id))
+    .bind("init-admin-user")
+    .bind("System Admin")
+    .bind("admin@ai-gateway.local")
+    .bind("1")
+    .bind("系统管理")
+    .bind("Administrator")
+    .bind("super_admin")
+    .bind(true)
+    .bind(config.default_quota_amount)
+    .bind(0.0_f64)
+    .bind(now)
+    .bind(now)
+    .execute(&state.db.pool)
+    .await;
+
+    match result {
+        Ok(_) => {
+            let user = sqlx::query_as::<_, User>(
+                "SELECT id, union_id, user_id, name, email, avatar, department_id, department_name, \
+                 title, role, is_active, quota_balance, quota_used, last_login_at, created_at, updated_at, \
+                 allowed_models \
+                 FROM users WHERE id = $1"
+            )
+            .bind(user_id)
+            .fetch_one(&state.db.pool)
+            .await;
+
+            match user {
+                Ok(u) => match make_login_response(&u, config) {
+                    Ok(resp) => (StatusCode::CREATED, resp).into_response(),
+                    Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"detail": e}))).into_response(),
+                },
+                Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"detail": format!("DB error: {}", e)}))).into_response(),
+            }
+        }
+        Err(e) => {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"detail": format!("Failed to create admin: {}", e)}))).into_response()
+        }
+    }
+}
+
 // ============================================================
 // Internal helpers
 // ============================================================
@@ -508,15 +592,15 @@ async fn login_or_register(
         }
         None => {
             // First-time user → auto-register
-            // First registered user becomes super_admin
-            let count: (i64,) = sqlx::query_as(
-                "SELECT COUNT(*) FROM users"
+            // Promote to super_admin if no admin exists yet
+            let admin_count: (i64,) = sqlx::query_as(
+                "SELECT COUNT(*) FROM users WHERE role IN ('admin', 'super_admin')"
             )
             .fetch_one(&state.db.pool)
             .await
             .map_err(|e| format!("DB error: {}", e))?;
 
-            let role = if count.0 == 0 { "super_admin" } else { "employee" };
+            let role = if admin_count.0 == 0 { "super_admin" } else { "employee" };
 
             // Get department info
             let dept_id = dt_user.dept_id_list.as_ref()

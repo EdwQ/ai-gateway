@@ -1,4 +1,4 @@
-FROM rust:1.81-slim-bookworm AS builder
+FROM rust:1.96.0-slim-bookworm AS builder
 
 WORKDIR /app
 
@@ -19,6 +19,12 @@ RUN cargo build --release
 FROM debian:12-slim
 
 WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y -o Acquire::Retries=3 --no-install-recommends \
+    libssl3 ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy binary
 COPY --from=builder /app/target/release/ai-gateway-rs /app/ai-gateway-rs

@@ -35,7 +35,7 @@ services:
       - "2887:2887"
     environment:
       # Database & Redis
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ai_gateway
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/ai_gateway
       - REDIS_URL=redis://redis:6379/0
       # Auth & Encryption
       - SECRET_KEY=${SECRET_KEY:-change-this-to-a-random-secret-key-min-32-chars}
