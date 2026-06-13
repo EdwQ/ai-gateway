@@ -1,4 +1,5 @@
-# Python
+# Python (legacy - fully migrated to Rust)
+backend/
 __pycache__/
 *.py[cod]
 *.so

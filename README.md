@@ -1,21 +1,67 @@
-# AI Gateway - 企业 AI 能力平台
+# AI Gateway
 
-> 公司内部统一 AI API Gateway，支持钉钉 SSO 登录、统一 API 管理、成本统计与审计。
->
-> 核心代理层使用 Rust 重写，较 Python 版内存占用降低 5-10 倍。
+> 企业级 AI API 网关，纯 Rust 实现。统一管理 AI 服务商、API Key、用户额度、调用统计与审计。
+
+**单二进制文件** | **~15 MB 内存占用** | **零外部依赖部署**
 
 ---
 
 ## 目录
 
-- [快速开始](#快速开始)
 - [系统架构](#系统架构)
-- [系统配置](#系统配置)
-- [开发指南](#开发指南)
-- [API 文档](#api-文档)
-- [前端使用指南](#前端使用指南)
+- [快速开始](#快速开始)
+- [如何使用](#如何使用)
+- [API 概览](#api-概览)
+- [配置说明](#配置说明)
 - [部署指南](#部署指南)
+- [服务器需求](#服务器需求)
+- [开发指南](#开发指南)
 - [常见问题](#常见问题)
+
+---
+
+## 系统架构
+
+```
+┌─────────────────────────────────────────────┐
+│         客户端 (OpenAI SDK / Cursor)          │
+│     base_url = http://gateway:2887/v1         │
+└───────────────────┬─────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────┐
+│       AI Gateway（纯 Rust，端口 2887）         │
+│                                             │
+│  AI 代理接口：                                │
+│  ├─ /v1/chat/completions  流式/非流式        │
+│  ├─ /v1/embeddings        向量嵌入           │
+│  └─ /v1/models            模型列表            │
+│                                             │
+│  管理 API（全部 Rust 实现）：                   │
+│  ├─ /api/v1/auth/*      钉钉登录 / JWT       │
+│  ├─ /api/v1/users/*     用户 CRUD           │
+│  ├─ /api/v1/tokens/*    API Token 管理       │
+│  ├─ /api/v1/admin/*     Provider / 别名管理   │
+│  ├─ /api/v1/stats/*     统计与报表           │
+│  └─ /api/v1/audit/*     审计日志             │
+└──────────────┬──────────────────────────────┘
+               │
+       ┌───────┴───────┐
+       ▼               ▼
+┌──────────────┐ ┌──────────────┐
+│  PostgreSQL   │ │    Redis     │
+│  (持久化)     │ │ (限流/缓存)  │
+└──────────────┘ └──────────────┘
+```
+
+### 部署演变
+
+| 阶段 | 服务数 | 内存 | 语言 |
+|------|--------|------|------|
+| 原架构 | 5 服务 | ~200 MB | Python + Rust |
+| **现架构** | **4 服务** | **~25 MB** | **纯 Rust** |
+
+Python 管理层 ~3500 行代码已全部迁移到 Rust，无需 Python 运行环境。
 
 ---
 
@@ -23,156 +69,329 @@
 
 ### 前置条件
 
-- Docker & Docker Compose（推荐）
-- 或 Rust 1.81+ & Python 3.12+ & Node.js 20+（本地开发）
+- Docker & Docker Compose（推荐部署方式）
+- 或 Rust 1.81+ + Node.js 20+（本地开发）
+- PostgreSQL 16+ & Redis 7+（本地开发）
 
-### 方式一：Docker 一键部署（推荐）
+### Docker 一键部署
 
 ```bash
-# 1. 克隆项目
+# 1. 克隆
+git clone https://github.com/EdwQ/ai-gateway.git
 cd ai-gateway
 
 # 2. 配置环境变量
-cp backend/.env.example backend/.env
-# 编辑 .env，填入钉钉应用配置
-
-# 3. 启动所有服务
-docker compose up -d
-
-# 4. 访问
-# AI Gateway（OpenAI 兼容接口）: http://localhost:2887/v1
-# 管理后台:        http://localhost:3000
-# API 文档:        http://localhost:8001/docs
-```
-
-### 方式二：本地开发模式
-
-**启动依赖服务：**
-
-```bash
-docker compose -f docker-compose.dev.yml up -d
-# 启动 PostgreSQL (5432) + Redis (6379)
-```
-
-**启动 Rust 代理层（热点路径）：**
-
-```bash
-cd backend-rs
-cargo run
-# 监听 http://localhost:2887
-# 处理 /v1/chat/completions, /v1/embeddings, /v1/models, /health/*
-```
-
-**启动 Python 管理层：**
-
-```bash
-cd backend
 cp .env.example .env
+# 编辑 .env，填入 SECRET_KEY / ENCRYPTION_KEY / 钉钉配置
 
-# 创建虚拟环境（推荐）
-python3 -m venv venv
-source venv/bin/activate
+# 3. 启动
+docker compose up -d --build
 
-# 安装依赖
-pip install -r requirements.txt
+# 4. 验证
+curl http://localhost:2887/health/liveness
+# → {"status":"alive","timestamp":...}
 
-# 初始化数据库（自动建表）
-python3 -c "import asyncio; from app.core.database import init_db; asyncio.run(init_db())"
-
-# 启动开发服务器（热重载）
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+# 5. 开发模式下快速登录（获取 JWT）
+curl -X POST http://localhost:2887/api/v1/auth/dev/login
+# → {"access_token":"eyJ...","user":{"role":"admin",...}}
 ```
 
-**启动前端：**
+### 本地开发
 
 ```bash
+# 1. 启动依赖
+docker compose -f docker-compose.dev.yml up -d
+# PostgreSQL :5432 + Redis :6379
+
+# 2. 初始化数据库表
+psql -U postgres -d ai_gateway -f backend-rs/migrations/20240613000001_initial_schema.sql
+
+# 3. 启动 Rust 服务
+cd backend-rs
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ai_gateway \
+REDIS_URL=redis://localhost:6379/0 \
+cargo run
+
+# 4. 启动前端（可选）
 cd frontend
 npm install
 npm run dev
-# 访问 http://localhost:5173
+# → http://localhost:5173
 ```
 
 ---
 
-## 系统架构
+## 如何使用
+
+### 1. 开发模式登录
+
+系统内置开发模式，无需钉钉配置即可使用：
+
+```bash
+# 获取管理员 JWT（自动创建测试用户）
+curl -s -X POST http://localhost:2887/api/v1/auth/dev/login \
+  -H 'Content-Type: application/json'
+```
+
+响应中会返回 `access_token`，后续请求需在 Header 中携带：
+
+```http
+Authorization: Bearer eyJ0eXAiOiJKV1QiL...
+```
+
+### 2. 创建 API Token
+
+```bash
+TOKEN="上面返回的access_token"
+
+curl -X POST http://localhost:2887/api/v1/tokens \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"我的 Key"}'
+
+# 响应（token 字段仅返回一次，请立即保存！）
+# {"id":"uuid","token":"sk-company-a1b2c3d4e5f6...","name":"我的 Key"}
+```
+
+### 3. 添加 AI Provider
+
+```bash
+curl -X POST http://localhost:2887/api/v1/admin/providers \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "deepseek",
+    "display_name": "DeepSeek",
+    "base_url": "https://api.deepseek.com",
+    "api_key": "sk-your-api-key",
+    "models": ["deepseek-chat", "deepseek-reasoner"]
+  }'
+```
+
+### 4. 调用 AI 接口
+
+使用 OpenAI SDK 接入：
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="sk-company-a1b2c3d4e5f6...",
+    base_url="http://localhost:2887/v1"
+)
+
+# 列出可用模型
+models = client.models.list()
+for m in models:
+    print(m.id)
+
+# 对话
+response = client.chat.completions.create(
+    model="deepseek-chat",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.choices[0].message.content)
+```
+
+Cursor / Cherry Studio / OpenWebUI 等工具配置：
+
+| 配置项 | 值 |
+|--------|-----|
+| API Base URL | `http://your-gateway:2887/v1` |
+| API Key | `sk-company-xxxxx...` |
+
+### 5. 管理后台（前端）
+
+访问 `http://localhost:3000` 打开管理后台：
+
+- **仪表盘**：查看调用量、费用、模型排行
+- **API Token**：创建/轮换/删除 Token
+- **Provider 管理**：添加/编辑/健康检查 AI 服务商
+- **模型别名**：为用户分配可用的模型别名
+- **用户管理**：设置角色、额度、可用模型
+- **数据统计**：日/月报表 + CSV 导出
+- **审计日志**：操作记录追踪
+
+### 6. 模型别名机制
 
 ```
-┌─────────────────────────────────────────────────┐
-│  客户端 (OpenAI SDK / Cursor / Cherry Studio)    │
-│  base_url = http://your-gateway:2887/v1          │
-└──────────────────────┬──────────────────────────┘
-                       │
-                       ▼
-┌──────────────────────────────────────────────────┐
-│  Rust 代理层 (backend-rs/)          端口 :2887    │
-│  ├─ /v1/chat/completions   流式/非流式转发       │
-│  ├─ /v1/embeddings         向量转发               │
-│  ├─ /v1/models             模型列表               │
-│  └─ /health/*              健康检查               │
-└──────────────────────┬──────────────────────────┘
-                       │
-          ┌────────────┼────────────┐
-          ▼            ▼            ▼
-   ┌──────────┐ ┌──────────┐ ┌──────────┐
-   │ 上游 AI  │ │ Redis    │ │PostgreSQL│
-   │ Provider │ │ 限流/缓存│ │ 持久化   │
-   └──────────┘ └──────────┘ └──────────┘
-                       ▲
-                       │
-┌──────────────────────────────────────────────────┐
-│  Python 管理层 (backend/)           端口 8001     │
-│  ├─ /api/v1/auth/*        钉钉 SSO 登录          │
-│  ├─ /api/v1/users/*       用户管理               │
-│  ├─ /api/v1/tokens/*      API Token 管理         │
-│  ├─ /api/v1/admin/*       Provider 管理          │
-│  ├─ /api/v1/stats/*       数据统计               │
-│  └─ /api/v1/audit/*       审计日志               │
-└──────────────────────────────────────────────────┘
+用户可见名 → 别名 → 真实模型
+  "助手"   →  alias  → deepseek-chat
+  "旗舰"   →  alias  → gpt-4o
 ```
+
+- 管理员创建别名，为用户分配可用的别名列表
+- 普通用户只能看到自己被授权的别名
+- 切换 Provider 时只需改别名指向，对用户透明
 
 ---
 
-## 系统配置
+## API 概览
+
+### AI 代理接口（端口 2887，需 API Token）
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/v1/chat/completions` | POST | 对话（支持流式 SSE） |
+| `/v1/embeddings` | POST | 向量嵌入 |
+| `/v1/models` | GET | 模型列表（按角色过滤） |
+
+### 管理 API（端口 2887，需 JWT Token）
+
+| 端点 | 方法 | 角色 | 说明 |
+|------|------|------|------|
+| `/api/v1/auth/dev/login` | POST | - | 开发模式登录 |
+| `/api/v1/auth/me` | GET | * | 当前用户信息 |
+| `/api/v1/auth/refresh` | POST | - | 刷新 JWT |
+| `/api/v1/auth/logout` | POST | - | 登出（黑名单） |
+| `/api/v1/tokens` | GET/POST | * | 创建/列出 Token |
+| `/api/v1/tokens/{id}/rotate` | POST | * | 轮换 Token |
+| `/api/v1/users` | GET | admin+ | 用户分页列表 |
+| `/api/v1/users/{id}` | PATCH | admin+ | 编辑用户 |
+| `/api/v1/users/{id}` | DELETE | super_admin | 禁用用户 |
+| `/api/v1/admin/providers` | GET/POST | admin+ | 管理 Provider |
+| `/api/v1/admin/providers/{id}/check` | POST | admin+ | 健康检查 |
+| `/api/v1/admin/model-aliases` | GET/POST | admin+ | 管理别名 |
+| `/api/v1/stats/dashboard` | GET | * | 仪表盘概览 |
+| `/api/v1/stats/daily` | GET | * | 日统计 |
+| `/api/v1/stats/export` | GET | finance+ | CSV 导出 |
+| `/api/v1/audit/logs` | GET | admin+ | 审计日志 |
+
+---
+
+## 配置说明
 
 ### 环境变量
 
 | 变量名 | 必填 | 默认值 | 说明 |
-|:---|:---:|:---|:---|
-| `SECRET_KEY` | ✅ | - | JWT 签名密钥，至少 32 字符 |
+|--------|:----:|--------|------|
+| `SECRET_KEY` | ✅ | - | JWT 签名密钥，≥32 字符 |
 | `ENCRYPTION_KEY` | ✅ | - | AES-256 加密密钥，32 字节 |
-| `DATABASE_URL` | - | `postgresql+asyncpg://postgres:postgres@db:5432/ai_gateway` | PostgreSQL 连接串 |
-| `REDIS_URL` | - | `redis://redis:6379/0` | Redis 连接串 |
-| `DINGTALK_APP_ID` | ✅* | - | 钉钉应用 AppKey（*如需登录） |
-| `DINGTALK_APP_SECRET` | ✅* | - | 钉钉应用 AppSecret |
-| `DINGTALK_AGENT_ID` | - | - | 钉钉应用 AgentId |
-| `DEBUG` | - | `false` | 调试模式（开启后自动建表） |
-| `ALLOWED_ORIGINS` | - | `http://localhost:3000,http://localhost:5173` | CORS 允许的域名 |
-| `PROMPT_SAVE_MODE` | - | `off` | Prompt 保存策略：`off` / `summary` / `masked` / `full` |
+| `DATABASE_URL` | - | `postgresql://postgres:postgres@db:5432/ai_gateway` | PostgreSQL |
+| `REDIS_URL` | - | `redis://redis:6379/0` | Redis |
+| `DINGTALK_APP_ID` | * | - | 钉钉 AppKey（如需登录） |
+| `FRONTEND_URL` | - | `http://localhost:3000` | 前端地址 |
+| `RATE_LIMIT_USER_QPS` | - | `10` | 用户 QPS |
 | `DEFAULT_QUOTA_AMOUNT` | - | `50.0` | 新用户默认额度（元） |
-| `RATE_LIMIT_USER_QPS` | - | `10` | 用户 QPS 上限 |
-| `RATE_LIMIT_PROVIDER_QPS` | - | `100` | Provider QPS 上限 |
+| `PROMPT_SAVE_MODE` | - | `off` | Prompt 审计模式 |
+| `DEBUG` | - | `false` | 调试模式 |
 
-### 钉钉应用配置
+### 模型价格
 
-1. 登录 [钉钉开放平台](https://open.dingtalk.com)
-2. 创建「企业内部应用」
-3. 获取 `AppKey` 和 `AppSecret`
-4. 在「应用功能」→「登录与分享」中开启扫码登录
-5. 配置回调域名指向本系统
-
-### 模型价格配置
-
-价格表位于 `backend-rs/src/proxy.rs` 中的 `MODEL_PRICES` 常量，格式为：
+内置价格表在 `backend-rs/src/proxy.rs` 的 `MODEL_PRICES` 中：
 
 ```rust
 const MODEL_PRICES: &[(&str, f64, f64)] = &[
-    ("gpt-4o", 2.50, 10.00),       // (输入 $/M tokens, 输出 $/M tokens)
-    ("deepseek-chat", 0.14, 0.28),
+    ("gpt-4o",          2.50, 10.00),  // (输入 $/1M tokens, 输出 $/1M tokens)
+    ("deepseek-chat",   0.14, 0.28),
+    ("claude-3-5-sonnet", 3.00, 15.00),
     // ...
 ];
 ```
 
-按 1 USD = 7.25 RMB 汇率自动换算，可在代码中调整 `USD_TO_RMB` 常量。
+按 1 USD = 7.25 RMB 自动换算，可在源码中调整。
+
+---
+
+## 部署指南
+
+### Docker 生产部署
+
+```bash
+# 单机部署
+docker compose up -d --build
+
+# 查看日志
+docker compose logs -f rust-proxy
+
+# 更新服务
+git pull
+docker compose up -d --build rust-proxy
+```
+
+### Kubernetes 部署
+
+```yaml
+# 最小部署示例
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-gateway
+  template:
+    metadata:
+      labels:
+        app: ai-gateway
+    spec:
+      containers:
+      - name: proxy
+        image: ai-gateway:latest
+        ports:
+        - containerPort: 2887
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ai-gateway-secret
+              key: database-url
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ai-gateway-secret
+              key: secret-key
+```
+
+### 环境要求
+
+| 组件 | 最低配置 | 推荐配置 |
+|------|---------|---------|
+| CPU | 1 核（x86_64/ARM64） | 2 核 |
+| 内存 | 256 MB | 512 MB |
+| 磁盘 | 10 GB | 20 GB |
+| PostgreSQL | 14+ | 16+ |
+| Redis | 6+ | 7+ |
+
+---
+
+## 服务器需求
+
+### 资源估算
+
+| 场景 | 用户数 | 日请求量 | CPU | 内存 | 网络 |
+|------|--------|---------|-----|------|------|
+| 小团队 | 10-50 人 | 1 万次 | 1 核 | 512 MB | 10 Mbps |
+| 中型团队 | 50-200 人 | 10 万次 | 2 核 | 1 GB | 50 Mbps |
+| 全公司 | 200-1000 人 | 100 万次 | 4 核 | 2 GB | 100 Mbps |
+
+### 瓶颈分析
+
+| 组件 | 瓶颈 | 扩展方式 |
+|------|------|---------|
+| **AI Gateway** | CPU（加解密/转发） | 水平扩展（无状态） |
+| PostgreSQL | 磁盘 IO（usage_logs 写入） | 读写分离 / 定期归档 |
+| Redis | 内存（限流计数器） | 集群模式 |
+| 上游 Provider | API 速率限制 | 多 Key 轮询 / 自动故障切换 |
+
+### 推荐服务器配置
+
+```
+低成本方案（50 人以内）：
+  云服务器 2C4G | ¥50-100/月
+  PostgreSQL + Redis + AI Gateway 同机部署
+
+标准方案（200 人以内）：
+  云服务器 4C8G | ¥200-400/月
+  可选 RDS 托管数据库
+
+高可用方案（1000 人）：
+  2 台 4C8G 应用服务器（负载均衡）
+  RDS PostgreSQL + Redis 集群
+  预计 ¥1000-2000/月
+```
 
 ---
 
@@ -182,412 +401,97 @@ const MODEL_PRICES: &[(&str, f64, f64)] = &[
 
 ```
 ai-gateway/
-├── backend-rs/                    # Rust 代理层（热点路径）
+├── backend-rs/                    # ✅ 唯一后端（纯 Rust）
+│   ├── migrations/                #    SQL 迁移文件
 │   ├── src/
-│   │   ├── main.rs               # 入口：axum 服务器启动
-│   │   ├── config.rs             # 配置
-│   │   ├── db.rs                 # PostgreSQL 连接
-│   │   ├── redis.rs              # Redis 连接
-│   │   ├── models.rs             # 数据模型
-│   │   ├── auth.rs               # API Token 验证
-│   │   ├── rate_limit.rs         # Redis 限流
-│   │   ├── proxy.rs              # 核心代理逻辑
+│   │   ├── main.rs                #    入口：28 条路由注册
+│   │   ├── config.rs              #    配置读取
+│   │   ├── security.rs            #    JWT / AES / Token
+│   │   ├── dingtalk.rs            #    钉钉 OAuth 客户端
+│   │   ├── mask.rs                #    PII 脱敏
+│   │   ├── proxy.rs               #    AI 代理 + 计费
+│   │   ├── auth.rs / rate_limit.rs
+│   │   ├── db.rs / redis.rs
 │   │   └── routes/
-│   │       ├── gateway.rs        # /v1/chat/completions 等
-│   │       └── health.rs         # /health/*
-│   ├── Cargo.toml
-│   └── Dockerfile
-├── backend/                       # Python 管理层
-│   ├── app/
-│   │   ├── api/v1/               # 管理 API 路由
-│   │   ├── core/                 # 核心模块（配置、安全、数据库）
-│   │   ├── models/               # SQLAlchemy 数据模型
-│   │   ├── schemas/              # Pydantic 请求/响应模型
-│   │   ├── services/             # 业务逻辑层
-│   │   ├── middleware/           # 中间件
-│   │   └── main.py               # 应用入口
-│   ├── alembic/                  # 数据库迁移
-│   ├── tests/                    # 测试
-│   └── Dockerfile
-├── frontend/                      # 前端管理后台
-│   ├── src/
-│   │   ├── api/                  # API 客户端 & Auth
-│   │   ├── pages/                # 页面组件
-│   │   └── App.tsx               # 路由 & 布局
-│   ├── nginx.conf
-│   └── Dockerfile
-├── docker-compose.yml             # 生产部署
-└── docker-compose.dev.yml         # 本地开发
+│   │       ├── gateway.rs         #    /v1/* AI 代理
+│   │       ├── auth_routes.rs     #    认证
+│   │       ├── token_routes.rs    #    Token 管理
+│   │       ├── user_routes.rs     #    用户管理
+│   │       ├── provider_routes.rs #    Provider 管理
+│   │       ├── alias_routes.rs    #    别名管理
+│   │       ├── stats_routes.rs    #    统计报表
+│   │       ├── audit_routes.rs    #    审计日志
+│   │       └── health.rs          #    健康检查
+│   └── Cargo.toml
+├── frontend/                       # React + Ant Design 管理后台
+├── docker-compose.yml              # 生产部署（4 服务）
+└── docker-compose.dev.yml          # 本地开发
 ```
 
-### 数据库迁移
+### 常用命令
 
 ```bash
-cd backend
-alembic revision --autogenerate -m "description"
-alembic upgrade head
+# 构建
+cd backend-rs && cargo build --release
+
+# 测试
+cargo test
+
+# 运行
+DATABASE_URL=postgresql://... REDIS_URL=redis://... cargo run
+
+# 数据库迁移（手动）
+psql -d ai_gateway -f migrations/20240613000001_initial_schema.sql
+
+# 编译 Release（优化体积）
+cargo build --release
+# 产物：target/release/ai-gateway-rs  ~15 MB
 ```
-
-### 运行测试
-
-```bash
-cd backend
-pytest tests/ -v
-```
-
-### 添加新 Provider
-
-在管理后台 → Provider 管理中新增即可，无需重启。系统支持：
-
-| Provider | API Base URL |
-|:---|:---|
-| OpenAI | `https://api.openai.com` |
-| Anthropic Claude | `https://api.anthropic.com` |
-| Google Gemini | `https://generativelanguage.googleapis.com` |
-| DeepSeek | `https://api.deepseek.com` |
-| 通义千问 | `https://dashscope.aliyuncs.com` |
-| Ollama | `http://localhost:11434` |
-| vLLM | `http://localhost:8000` |
-
----
-
-## API 文档
-
-### 认证 API
-
-#### 获取钉钉扫码二维码
-
-```http
-POST /api/v1/auth/dingtalk/qrcode
-```
-
-**响应：**
-```json
-{
-  "qr_code_url": "https://oapi.dingtalk.com/connect/qrconnect?appid=..."
-}
-```
-
-#### 钉钉扫码登录
-
-```http
-POST /api/v1/auth/dingtalk/callback
-Content-Type: application/json
-
-{
-  "auth_code": "dingtalk_auth_code_here"
-}
-```
-
-**响应：**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
-  "token_type": "bearer",
-  "user": {
-    "id": "uuid",
-    "name": "张三",
-    "email": "zhangsan@company.com",
-    "role": "employee",
-    "department_name": "技术部",
-    "quota_balance": 50.0,
-    "quota_used": 12.5
-  }
-}
-```
-
-#### 刷新 Token
-
-```http
-POST /api/v1/auth/refresh
-Content-Type: application/json
-
-{
-  "refresh_token": "eyJhbGciOiJIUzI1NiIs..."
-}
-```
-
-#### 获取当前用户
-
-```http
-GET /api/v1/auth/me
-Authorization: Bearer <access_token>
-```
-
-### API Token 管理
-
-#### 创建 Token
-
-```http
-POST /api/v1/tokens
-Authorization: Bearer <access_token>
-Content-Type: application/json
-
-{
-  "name": "我的 API Key"
-}
-```
-
-**响应：**
-```json
-{
-  "id": "uuid",
-  "token": "sk-company-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f",
-  "name": "我的 API Key",
-  "created_at": "2026-06-07T12:00:00Z"
-}
-```
-
-> ⚠️ `token` 字段**仅在此刻返回**，请立即保存！
-
-#### 轮换 Token
-
-```http
-POST /api/v1/tokens/{token_id}/rotate
-Authorization: Bearer <access_token>
-```
-
-### AI Gateway（OpenAI 兼容接口）
-
-由 Rust 代理层处理，入口端口 **2887**。
-
-#### Chat Completions
-
-```http
-POST /v1/chat/completions
-Authorization: Bearer sk-company-xxxxx...
-Content-Type: application/json
-
-{
-  "model": "gpt-4o",
-  "messages": [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "Hello!"}
-  ],
-  "stream": false
-}
-```
-
-支持与 OpenAI SDK 完全兼容的使用方式：
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="sk-company-xxxxx...",
-    base_url="http://your-gateway:2887/v1"
-)
-
-response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "Hello!"}]
-)
-```
-
-#### 流式响应
-
-将 `stream` 参数设为 `true`，即可获得 SSE（Server-Sent Events）流式响应，支持 Cursor、Cherry Studio、OpenWebUI 等工具。
-
-#### 模型列表
-
-```http
-GET /v1/models
-Authorization: Bearer sk-company-xxxxx...
-```
-
-#### Embeddings
-
-```http
-POST /v1/embeddings
-Authorization: Bearer sk-company-xxxxx...
-Content-Type: application/json
-
-{
-  "model": "text-embedding-ada-002",
-  "input": "The food was delicious and the waiter..."
-}
-```
-
-### 管理 API
-
-需 `admin` / `super_admin` / `finance` 角色（取决于接口）。由 Python 管理层处理。
-
-#### 用户管理
-
-```http
-GET /api/v1/users?page=1&page_size=20&search=张三
-Authorization: Bearer <admin_token>
-
-PATCH /api/v1/users/{user_id}
-Authorization: Bearer <admin_token>
-Content-Type: application/json
-
-{
-  "role": "admin",
-  "is_active": true,
-  "quota_balance": 100.0
-}
-```
-
-#### Provider 管理
-
-```http
-# 新增 Provider
-POST /api/v1/admin/providers
-Authorization: Bearer <admin_token>
-Content-Type: application/json
-
-{
-  "name": "deepseek",
-  "display_name": "DeepSeek",
-  "base_url": "https://api.deepseek.com",
-  "api_key": "sk-xxxxxxxx",
-  "models": ["deepseek-chat", "deepseek-reasoner"],
-  "priority": 100,
-  "rate_limit_qps": 60
-}
-
-# 健康检查
-POST /api/v1/admin/providers/{provider_id}/check
-Authorization: Bearer <admin_token>
-
-# 响应
-{
-  "status": "healthy",
-  "latency_ms": 234
-}
-```
-
-#### 数据统计
-
-```http
-# Dashboard 概览
-GET /api/v1/stats/dashboard
-
-# 日报
-GET /api/v1/stats/daily?days=30
-
-# 月报
-GET /api/v1/stats/monthly?months=6
-
-# 导出 CSV
-GET /api/v1/stats/export?month=2026-06
-```
-
----
-
-## 前端使用指南
-
-### 登录
-
-1. 访问管理后台
-2. 输入钉钉 `auth_code`（MVP 版本）或扫码登录
-3. 首次登录自动开户，获得 50 元默认额度
-
-### 获取 API Token
-
-1. 登录后在左侧菜单点击「API Token」
-2. 点击「创建 Token」按钮
-3. 输入名称（可选），点击确定
-4. **立即复制并保存 Token**（关闭弹窗后不再显示）
-5. 在 OpenAI SDK 中使用该 Token 调用 AI 接口（`base_url=http://your-gateway:2887/v1`）
-
-### 管理 Provider
-
-> 需要管理员权限
-
-1. 进入「Provider 管理」
-2. 点击「新增 Provider」添加 AI 服务商
-3. 填写名称、API URL、API Key、支持模型列表
-4. 使用「健康检查」按钮测试连通性
-5. 支持优先级排序和 QPS 限制
-
-### 查看统计
-
-1. 仪表盘：首页展示关键指标和趋势图
-2. 数据统计：日月维度的 Token/费用图表
-3. 报表导出：选择月份，一键导出 CSV
-
-### 审计日志
-
-记录所有敏感操作（登录、Token 创建/删除、用户信息修改、Provider 变更等），支持按操作类型筛选。
-
----
-
-## 部署指南
-
-### 生产部署
-
-```bash
-# 1. 配置环境变量
-export SECRET_KEY="your-32-char-secret-key"
-export ENCRYPTION_KEY="your-32-byte-encryption-key"
-export DINGTALK_APP_ID="your-app-id"
-export DINGTALK_APP_SECRET="your-app-secret"
-
-# 2. 启动全量服务
-docker compose up -d --build
-
-# 3. 验证
-curl http://localhost:2887/health/liveness
-curl http://localhost:2887/health/readiness
-```
-
-### 环境要求
-
-| 组件 | 最低配置 | 推荐配置 |
-|:---|:---|:---|
-| CPU | 2 核 | 4 核 |
-| 内存 | 2 GB | 4 GB |
-| 磁盘 | 20 GB | 50 GB |
-| Docker | 24+ | 最新版 |
-
-### 性能建议
-
-- Rust 代理层单二进制无依赖，内存占用约 10-20 MB
-- PostgreSQL：建议开启 `pg_stat_statements` 用于查询分析
-- Redis：建议部署集群模式以支持高可用
-- Provider Key：建议为每个 Provider 配置多个 Key，系统自动轮询和故障切换
-- 管理 API（Python）可通过 `--workers` 参数调整 Worker 数，建议为 CPU 核数 × 2
 
 ---
 
 ## 常见问题
 
-### Q: 启动时提示数据库连接失败？
-确保 PostgreSQL 已启动。开发模式请执行：`docker compose -f docker-compose.dev.yml up -d`
+### 启动失败，数据库连接不上？
 
-### Q: 如何测试 API 兼容性？
-```python
-# 使用 OpenAI Python SDK 测试
-pip install openai
-python -c "
-from openai import OpenAI
-client = OpenAI(api_key='sk-company-xxx', base_url='http://localhost:2887/v1')
-models = client.models.list()
-print('Models:', [m.id for m in models])
-"
+确保 PostgreSQL 已启动且连接串正确：
+
+```bash
+# macOS
+brew services start postgresql@16
+createdb ai_gateway
+
+# Docker
+docker compose -f docker-compose.dev.yml up -d
 ```
 
-### Q: 钉钉登录失败？
-1. 确认 `.env` 中 `DINGTALK_APP_ID` 和 `DINGTALK_APP_SECRET` 已正确配置
-2. 确认钉钉应用已开启扫码登录权限
-3. 确认回调域名正确配置
+### 如何不用钉钉快速体验？
 
-### Q: Provider 健康检查失败？
-1. 确认 API Key 正确
-2. 确认网络可访问 Provider 的 API
-3. 在 Provider 管理页面点击健康检查查看详细错误信息
+使用开发模式登录接口，无需任何配置：
 
-### Q: 额度消耗不准确？
-额度基于模型价格表计算。如需调整，修改 `backend-rs/src/proxy.rs` 中的 `MODEL_PRICES` 常量。
+```bash
+curl -X POST http://localhost:2887/api/v1/auth/dev/login
+# 返回 admin 角色的 JWT Token
+```
 
-### Q: 如何重置所有数据？
+### Provider 健康检查失败？
+
+1. 确认 API Key 和 Base URL 正确
+2. 确认服务器可访问外网（某些云厂商需要配置 NAT）
+3. 尝试手动 curl 测试：`curl https://api.deepseek.com/v1/models -H "Authorization: Bearer sk-xxx"`
+
+### 如何重置所有数据？
+
 ```bash
 docker compose down -v
+rm -rf postgres_data redis_data
 docker compose up -d
 ```
+
+### 前端页面空白？
+
+确认已设置正确的 API 地址。本地开发时前端默认连接同端口（2887），
+如果端口不同，修改 `frontend/src/api/client.ts` 中的 `baseURL`。
 
 ---
 

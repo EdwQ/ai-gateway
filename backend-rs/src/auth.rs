@@ -25,7 +25,7 @@ pub async fn validate_api_token(
 
     // Find matching token
     let api_token = sqlx::query_as::<_, ApiToken>(
-        "SELECT id, user_id, token_hash, token_prefix, name, is_active, last_used_at, created_at, updated_at \
+        "SELECT id, user_id, token_hash, token_prefix, name, is_active, last_used_at, expires_at, created_at, updated_at \
          FROM api_tokens \
          WHERE token_hash = $1 AND is_active = true"
     )

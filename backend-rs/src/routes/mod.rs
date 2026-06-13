@@ -1,2 +1,9 @@
+pub mod alias_routes;
+pub mod audit_routes;
+pub mod auth_routes;
 pub mod gateway;
 pub mod health;
+pub mod provider_routes;
+pub mod stats_routes;
+pub mod token_routes;
+pub mod user_routes;

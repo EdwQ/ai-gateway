@@ -1,14 +1,17 @@
 mod auth;
 mod config;
 mod db;
+mod dingtalk;
+mod mask;
 mod models;
 mod proxy;
 mod rate_limit;
 mod redis;
 mod routes;
+mod security;
 
 use axum::{
-    routing::{get, post},
+    routing::{delete, get, post, put},
     Router,
 };
 use std::sync::Arc;
@@ -17,7 +20,7 @@ use tower_http::cors::{Any, CorsLayer};
 use crate::config::AppConfig;
 use crate::db::AppDb;
 use crate::redis::AppRedis;
-use crate::routes::{gateway, health};
+use crate::routes::{alias_routes, audit_routes, auth_routes, gateway, health, provider_routes, stats_routes, token_routes, user_routes};
 
 #[tokio::main]
 async fn main() {
@@ -85,6 +88,35 @@ async fn main() {
         .route("/v1/chat/completions", post(gateway::chat_completions))
         .route("/v1/embeddings", post(gateway::embeddings))
         .route("/v1/models", get(gateway::list_models))
+        // Auth endpoints
+        .route("/api/v1/auth/dingtalk/qrcode", post(auth_routes::dingtalk_qrcode))
+        .route("/api/v1/auth/dingtalk/callback", get(auth_routes::dingtalk_callback_get).post(auth_routes::dingtalk_callback_post))
+        .route("/api/v1/auth/dev/login", post(auth_routes::dev_login))
+        .route("/api/v1/auth/refresh", post(auth_routes::refresh_token))
+        .route("/api/v1/auth/logout", post(auth_routes::logout))
+        .route("/api/v1/auth/me", get(auth_routes::me))
+        // Token management
+        .route("/api/v1/tokens", get(token_routes::list_tokens).post(token_routes::create_token))
+        .route("/api/v1/tokens/{id}", delete(token_routes::delete_token))
+        .route("/api/v1/tokens/{id}/rotate", post(token_routes::rotate_token))
+        // User management
+        .route("/api/v1/users", get(user_routes::list_users))
+        .route("/api/v1/users/{id}", get(user_routes::get_user).patch(user_routes::update_user).delete(user_routes::deactivate_user))
+        // Provider management
+        .route("/api/v1/admin/providers", get(provider_routes::list_providers).post(provider_routes::create_provider))
+        .route("/api/v1/admin/providers/discover-models", post(provider_routes::discover_models))
+        .route("/api/v1/admin/providers/{id}", put(provider_routes::update_provider).delete(provider_routes::delete_provider))
+        .route("/api/v1/admin/providers/{id}/check", post(provider_routes::check_provider_health))
+        // Model alias management
+        .route("/api/v1/admin/model-aliases", get(alias_routes::list_aliases).post(alias_routes::create_alias))
+        .route("/api/v1/admin/model-aliases/{id}", put(alias_routes::update_alias).delete(alias_routes::delete_alias))
+        // Stats & BI
+        .route("/api/v1/stats/dashboard", get(stats_routes::get_dashboard))
+        .route("/api/v1/stats/daily", get(stats_routes::get_daily_stats))
+        .route("/api/v1/stats/monthly", get(stats_routes::get_monthly_stats))
+        .route("/api/v1/stats/export", get(stats_routes::export_stats))
+        // Audit
+        .route("/api/v1/audit/logs", get(audit_routes::list_audit_logs))
         // CORS
         .layer(
             CorsLayer::new()

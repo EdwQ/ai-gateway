@@ -47,3 +47,21 @@ aes-gcm = "0.10"
 
 # Futures
 futures = "0.3"
+
+# JWT
+jsonwebtoken = "9"
+
+# Regex (PII masking, etc.)
+regex = "1"
+
+# URL encoding (DingTalk callback URL)
+urlencoding = "2"
+
+# Random token generation
+rand = "0.8"
+
+# Time helpers (JWT expiry)
+time = { version = "0.3", features = ["serde"] }
+
+# HMAC (DingTalk signature)
+hmac = "0.12"
