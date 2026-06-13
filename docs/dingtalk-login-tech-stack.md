@@ -179,7 +179,7 @@ localStorage.getItem('access_token') → getMe() → 设置 User 状态
 
 ### FRONTEND_URL 关键说明
 - **开发环境**: `http://localhost:3000`（Nginx 容器映射）
-- **生产环境**: `https://dsapi.surebestind.com`（docker-compose.yml 默认值）
+- **生产环境**: 你的域名（部署时在 `.env` 中设置 `FRONTEND_URL`）
 - 钉钉扫码后回调到此地址，手机需要能访问到
 
 ---

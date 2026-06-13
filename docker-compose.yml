@@ -45,8 +45,8 @@ services:
       - DINGTALK_APP_SECRET=${DINGTALK_APP_SECRET:-}
       - DINGTALK_AGENT_ID=${DINGTALK_AGENT_ID:-}
       # CORS & URLs
-      - FRONTEND_URL=${FRONTEND_URL:-https://dsapi.surebestind.com}
-      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:2887,https://dsapi.surebestind.com
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:2887
       # Rate Limit
       - RATE_LIMIT_USER_QPS=10
       - RATE_LIMIT_PROVIDER_QPS=100
