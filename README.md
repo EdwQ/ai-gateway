@@ -299,18 +299,85 @@ const MODEL_PRICES: &[(&str, f64, f64)] = &[
 
 ## 部署指南
 
-### Docker 生产部署
+### 资源占用说明
+
+Docker 全量部署占用约 **7.5 GB 磁盘**，其中：
+
+| 项目 | 大小 | 说明 |
+|------|------|------|
+| Rust 构建缓存 | 2.6 GB | 可以清理，下次重建时重新生成 |
+| Docker 镜像 | 2.8 GB | rust/node/postgres/redis/nginx |
+| 数据库数据卷 | 157 MB | PostgreSQL + Redis 数据 |
+
+**内存占用（运行时）：** Rust 代理 ~15 MB + PostgreSQL ~50 MB + Redis ~5 MB + Nginx ~10 MB = **不到 100 MB**。
+
+### 方案 A：Docker 全量部署（推荐开发环境）
 
 ```bash
-# 单机部署
 docker compose up -d --build
+```
 
-# 查看日志
-docker compose logs -f rust-proxy
+### 方案 B：单二进制部署（推荐轻量服务器，最省硬盘）
 
-# 更新服务
-git pull
-docker compose up -d --build rust-proxy
+将 Rust 编译成单个二进制文件，直接运行在宿主机上，省掉 Docker 的 Rust 和 Nginx 容器。
+
+**第一步：在本地编译 Release 版本**
+
+```bash
+cd backend-rs
+cargo build --release
+
+# 产物：target/release/ai-gateway-rs  ~15 MB
+# 将二进制文件 scp 到服务器
+```
+
+**第二步：服务器上只启动数据库**
+
+```bash
+# 服务器上只需要 PostgreSQL + Redis（用 docker 或 直接安装）
+docker compose -f docker-compose.minimal.yml up -d
+
+# 初始化数据库表
+psql -U postgres -d ai_gateway -f backend-rs/migrations/20240613000001_initial_schema.sql
+
+# 如果需要前端服务，单独用 nginx 或 Cloudflare Tunnel
+```
+
+**第三步：直接运行二进制**
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ai_gateway \
+REDIS_URL=redis://localhost:6379/0 \
+./ai-gateway-rs
+```
+
+**效果对比：**
+
+```
+Docker 全量:  ~7.5 GB 磁盘
+单二进制:     ~300 MB（仅 PG + Redis 镜像）+ 15 MB（二进制文件）
+```
+
+### 方案 C：全托管（最省服务器资源）
+
+使用托管数据库服务，服务器上只跑 Rust 二进制：
+
+```bash
+# 用托管 PostgreSQL（如 Supabase Free / Neon / RDS）
+# 用托管 Redis（如 Upstash Free）
+# 服务器上只需要 15 MB 二进制
+
+DATABASE_URL=postgresql://user:pass@your-supabase-db:5432/ai_gateway \
+REDIS_URL=rediss://default:pass@your-upstash-redis:6379 \
+./ai-gateway-rs
+```
+
+### 日常清理
+
+```bash
+# 清理 Docker 构建缓存（安全，不影响运行）
+docker system prune -af
+# 可回收约 5 GB 磁盘空间
 ```
 
 ### Kubernetes 部署

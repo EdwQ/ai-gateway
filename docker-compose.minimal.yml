@@ -1,0 +1,31 @@
+# 最小化部署：仅数据库服务，Rust 二进制直接运行
+# 使用方法：
+#   1. 本地编译: cd backend-rs && cargo build --release
+#   2. scp target/release/ai-gateway-rs 到服务器
+#   3. 启动本 compose: docker compose -f docker-compose.minimal.yml up -d
+#   4. 运行: DATABASE_URL=... REDIS_URL=... ./ai-gateway-rs
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ai_gateway
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
