@@ -602,4 +602,4 @@ docker compose up -d
 
 ## License
 
-企业内部使用。
+MIT License — 详见 [LICENSE](LICENSE) 文件。
