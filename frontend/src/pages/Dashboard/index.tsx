@@ -1,8 +1,69 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Statistic, Table, Spin, message } from 'antd';
-import { UserOutlined, ThunderboltOutlined, DollarOutlined, TeamOutlined } from '@ant-design/icons';
+import { Row, Col, Card, Statistic, Table, Spin, message, Collapse, Typography } from 'antd';
+import { UserOutlined, ThunderboltOutlined, DollarOutlined, TeamOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { getDashboard, getDailyStats } from '../../api/client';
+
+const { Paragraph, Text } = Typography;
+
+const apiDocContent = (
+  <div>
+    <Paragraph>
+      <Text strong>1. Base URL：</Text>
+      <code>http://你的域名:3000/v1/</code>
+      {' '}（如果通过 nginx 代理，端口为 3000；直接访问后端则为 2887）
+    </Paragraph>
+    <Paragraph>
+      <Text strong>2. 认证方式：</Text> 在请求头中携带
+      <code>Authorization: Bearer sk-你的token</code>
+    </Paragraph>
+    <Paragraph>
+      <Text strong>3. 模型名称：</Text> 使用系统配置的模型别名（如
+      <code>gpt-4</code>
+      、<code>qwen-plus</code>
+      等），可在"模型别名"页面查看可用列表
+    </Paragraph>
+    <Paragraph>
+      <Text strong>4. 兼容 OpenAI 格式：</Text> 所有接口与 OpenAI API 完全兼容，可直接替换 OpenAI 的 SDK 配置
+    </Paragraph>
+    <Collapse ghost>
+      <Collapse.Panel header="Python 示例 (openai SDK)" key="python">
+        <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, overflow: 'auto' }}>
+{`from openai import OpenAI
+
+client = OpenAI(
+    api_key="sk-你的token",
+    base_url="http://你的域名:3000/v1/"
+)
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "你好"}]
+)
+print(response.choices[0].message.content)`}
+        </pre>
+      </Collapse.Panel>
+      <Collapse.Panel header="cURL 示例" key="curl">
+        <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, overflow: 'auto' }}>
+{`curl -X POST http://你的域名:3000/v1/chat/completions \\
+  -H "Authorization: Bearer sk-你的token" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "gpt-4",
+    "messages": [{"role": "user", "content": "你好"}]
+  }'`}
+        </pre>
+      </Collapse.Panel>
+      <Collapse.Panel header="支持的路由" key="routes">
+        <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, overflow: 'auto' }}>
+{`POST /v1/chat/completions   - 聊天补全
+POST /v1/embeddings         - 文本 Embedding
+GET  /v1/models             - 查询可用模型列表`}
+        </pre>
+      </Collapse.Panel>
+    </Collapse>
+  </div>
+);
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -55,6 +116,19 @@ export default function Dashboard() {
 
   return (
     <div>
+      <Card
+        style={{ marginBottom: 16 }}
+        type="inner"
+        title={
+          <span>
+            <QuestionCircleOutlined style={{ marginRight: 8, color: '#1677ff' }} />
+            API 使用说明
+          </span>
+        }
+      >
+        {apiDocContent}
+      </Card>
+
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
           <Card>

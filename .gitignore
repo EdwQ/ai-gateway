@@ -45,3 +45,5 @@ backend/app/static/
 
 # Rust build
 target/
+ai-gateway-images.tar
+ai-gateway-images.tar.gz
