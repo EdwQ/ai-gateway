@@ -30,18 +30,30 @@
 
 **一键部署**：
 ```bash
-# 下载并加载镜像
+# 方法 1: 使用自动化部署脚本（推荐）
+chmod +x scripts/deploy.sh
+./scripts/deploy.sh deploy
+
+# 方法 2: 手动部署
 wget https://github.com/EdwQ/ai-gateway/releases/download/v1.0.0/ai-gateway-images.tar.gz
 gunzip ai-gateway-images.tar.gz
 docker load -i ai-gateway-images.tar
 
 # 配置环境变量
 cp .env.example .env
-# 编辑 .env 文件，填入你的配置
+# 编辑 .env 文件，**务必替换所有占位值**（特别是 DINGTALK_APP_ID）
 
-# 启动服务
-docker-compose -f docker-compose.yml up -d
+# 启动服务（强制重建以加载新配置）
+docker-compose stop
+docker-compose up -d --force-recreate
 ```
+
+> ⚠️ **重要提示**：
+> - 务必替换 `.env` 中的 `dev_app_id` 为真实的钉钉 App ID（格式应为 `cnxxx` 或 `dinggqxxx`）
+> - 修改 `.env` 后必须使用 `--force-recreate` 重建容器，仅 `restart` 不会加载新配置
+> - 首次部署需自动执行数据库迁移（脚本会自动处理）
+
+**查看部署问题总结**：[DEPLOYMENT_TROUBLESHOOTING.md](./DEPLOYMENT_TROUBLESHOOTING.md)
 
 ---
 

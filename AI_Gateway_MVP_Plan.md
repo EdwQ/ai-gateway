@@ -545,15 +545,15 @@ Department 1──N User
 ## 八、开发阶段规划
 
 ### Phase 1：身份与基础 (5 天)
-- **范围**：Epic 01 (Auth) + Epic 02 (User) + Epic 03 (Token)
-- **里程碑**：员工可扫码登录，并获得可用的 sk-company-xxx Token
-- **后端文件**：`auth.py`, `users.py`, `tokens.py`, `user.py`, `token.py` models + services
-- **前端文件**：`Login/`, `Tokens/` pages
+- **范围**: Epic 01 (Auth) + Epic 02 (User) + Epic 03 (Token)
+- **里程碑**: 钉钉扫码登录 + 自动开户 + API Token 管理
+- **后端文件**: `auth.rs`, `users.rs`, `tokens.rs`, `user.rs`, `token.rs` models + services
+- **前端文件**: `Login/`, `Tokens/` pages
 
 ### Phase 2：核心网关 (5 天)
-- **范围**：Epic 04 (Gateway)
-- **里程碑**：OpenAI SDK 兼容，支持流式/非流式调用，多 Key 轮询
-- **后端文件**：`gateway.py`, `gateway_service.py`, `provider.py` models
+- **范围**: Epic 04 (Gateway)
+- **里程碑**: OpenAI SDK 兼容，支持流式/非流式调用，多 Key 轮询
+- **后端文件**: `gateway.rs`, `gateway_service.rs`, `provider.rs` models
 
 ### Phase 3：成本中心 (4 天)
 - **范围**：Epic 05 (Usage) + Epic 06 (Audit)
@@ -580,8 +580,7 @@ ENCRYPTION_KEY=your-32-byte-aes-key-here!!!!
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 
 # Database
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/ai_gateway
-DATABASE_URL_SYNC=postgresql://postgres:postgres@db:5432/ai_gateway
+DATABASE_URL=postgres://postgres:***@db:5432/ai_gateway
 
 # Redis
 REDIS_URL=redis://redis:6379/0
