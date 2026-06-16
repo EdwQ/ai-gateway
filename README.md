@@ -20,6 +20,31 @@
 
 ---
 
+## 🚀 快速下载
+
+### Docker 镜像（推荐）
+
+**预构建镜像已发布在 GitHub Releases**：
+- [下载 v1.0.0 Docker 镜像](https://github.com/EdwQ/ai-gateway/releases/download/v1.0.0/ai-gateway-images.tar.gz) (58MB)
+- [查看所有版本](https://github.com/EdwQ/ai-gateway/releases)
+
+**一键部署**：
+```bash
+# 下载并加载镜像
+wget https://github.com/EdwQ/ai-gateway/releases/download/v1.0.0/ai-gateway-images.tar.gz
+gunzip ai-gateway-images.tar.gz
+docker load -i ai-gateway-images.tar
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，填入你的配置
+
+# 启动服务
+docker-compose -f docker-compose.yml up -d
+```
+
+---
+
 ## 系统架构
 
 ```
@@ -46,8 +71,8 @@
 │  └─ /api/v1/audit/*     审计日志             │
 └──────────────┬──────────────────────────────┘
                │
-       ┌───────┴───────┐
-       ▼               ▼
+        ┌───────┴───────┐
+        ▼               ▼
 ┌──────────────┐ ┌──────────────┐
 │  PostgreSQL   │ │    Redis     │
 │  (持久化)     │ │ (限流/缓存)  │
