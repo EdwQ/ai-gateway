@@ -77,8 +77,8 @@ export default function Users() {
     },
     { title: '可用模型', dataIndex: 'allowed_models', key: 'allowed_models',
       render: (v: string[]) => (v || []).length ? v.join(', ') : '全部' },
-    { title: '额度 (¥)', dataIndex: 'quota_balance', key: 'quota_balance', render: (v: number) => `¥${v.toFixed(2)}` },
-    { title: '已用 (¥)', dataIndex: 'quota_used', key: 'quota_used', render: (v: number) => `¥${v.toFixed(2)}` },
+    { title: '额度 (¥)', dataIndex: 'quota_balance', key: 'quota_balance', render: (v: number) => `¥${Number(v ?? 0).toFixed(2)}` },
+    { title: '已用 (¥)', dataIndex: 'quota_used', key: 'quota_used', render: (v: number) => `¥${Number(v ?? 0).toFixed(2)}` },
     {
       title: '操作', key: 'actions',
       render: (_: any, record: any) => (
