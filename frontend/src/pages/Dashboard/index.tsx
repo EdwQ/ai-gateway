@@ -9,36 +9,53 @@ const { Paragraph, Text } = Typography;
 const apiDocContent = (
   <div>
     <Paragraph>
-      <Text strong>1. Base URL：</Text>
+      <Text strong>📍 服务端口：</Text>
+      <code>3000</code>
+      {' '}（前端 nginx 代理端口，后端服务运行在 2887）
+    </Paragraph>
+    <Paragraph>
+      <Text strong>🔗 Base URL：</Text>
       <code>http://你的域名:3000/v1/</code>
-      {' '}（如果通过 nginx 代理，端口为 3000；直接访问后端则为 2887）
+      {' '}所有 API 请求以此为基础路径
     </Paragraph>
     <Paragraph>
-      <Text strong>2. 认证方式：</Text> 在请求头中携带
+      <Text strong>🔑 认证方式：</Text> 在请求头中携带
       <code>Authorization: Bearer sk-你的token</code>
+      {' '}（在"API Token"页面创建并获取你的 Token）
     </Paragraph>
     <Paragraph>
-      <Text strong>3. 模型名称：</Text> 使用系统配置的模型别名（如
+      <Text strong>🤖 模型名称：</Text> 填写系统配置的模型别名（如
       <code>gpt-4</code>
       、<code>qwen-plus</code>
-      等），可在"模型别名"页面查看可用列表
+      、<code>claude-3-5-sonnet</code>
+      等），可在"模型别名"页面查看完整可用列表
     </Paragraph>
     <Paragraph>
-      <Text strong>4. 兼容 OpenAI 格式：</Text> 所有接口与 OpenAI API 完全兼容，可直接替换 OpenAI 的 SDK 配置
+      <Text strong>📝 请求格式：</Text> 与 OpenAI API 完全兼容，支持
+      <code>chat/completions</code>
+      、<code>embeddings</code>
+      、<code>models</code>
+      等标准接口
     </Paragraph>
     <Collapse ghost>
       <Collapse.Panel header="Python 示例 (openai SDK)" key="python">
         <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, overflow: 'auto' }}>
 {`from openai import OpenAI
 
+# 初始化客户端，指定 Base URL 和 API Key
 client = OpenAI(
     api_key="sk-你的token",
     base_url="http://你的域名:3000/v1/"
 )
 
+# 调用聊天补全接口
 response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[{"role": "user", "content": "你好"}]
+    model="gpt-4",  # 填写模型别名
+    messages=[
+        {"role": "system", "content": "你是一个有帮助的助手"},
+        {"role": "user", "content": "你好，请介绍一下自己"}
+    ],
+    temperature=0.7
 )
 print(response.choices[0].message.content)`}
         </pre>
@@ -50,14 +67,37 @@ print(response.choices[0].message.content)`}
   -H "Content-Type: application/json" \\
   -d '{
     "model": "gpt-4",
-    "messages": [{"role": "user", "content": "你好"}]
+    "messages": [
+      {"role": "system", "content": "你是一个有帮助的助手"},
+      {"role": "user", "content": "你好"}
+    ],
+    "temperature": 0.7
   }'`}
+        </pre>
+      </Collapse.Panel>
+      <Collapse.Panel header="JavaScript / TypeScript 示例" key="js">
+        <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, overflow: 'auto' }}>
+{`import OpenAI from 'openai';
+
+const client = new OpenAI({
+  apiKey: 'sk-你的token',
+  baseURL: 'http://你的域名:3000/v1/'
+});
+
+const response = await client.chat.completions.create({
+  model: 'gpt-4',
+  messages: [
+    { role: 'user', content: '你好' }
+  ]
+});
+
+console.log(response.choices[0].message.content);`}
         </pre>
       </Collapse.Panel>
       <Collapse.Panel header="支持的路由" key="routes">
         <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, overflow: 'auto' }}>
-{`POST /v1/chat/completions   - 聊天补全
-POST /v1/embeddings         - 文本 Embedding
+{`POST /v1/chat/completions   - 聊天补全（对话生成）
+POST /v1/embeddings         - 文本 Embedding（向量化）
 GET  /v1/models             - 查询可用模型列表`}
         </pre>
       </Collapse.Panel>
