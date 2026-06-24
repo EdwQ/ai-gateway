@@ -38,8 +38,9 @@ pub struct ContentCapture {
 
 impl ContentCapture {
     pub fn new(pool: PgPool, config: ContentCaptureConfig) -> Self {
+        let mask_enabled = config.mask_enabled;
         let (tx, rx) = mpsc::channel(CHANNEL_CAPACITY);
-        tokio::spawn(Self::worker(rx, pool, config.retention_days));
+        tokio::spawn(Self::worker(rx, pool, config.retention_days, mask_enabled));
         Self { config, sender: tx }
     }
 
@@ -47,6 +48,7 @@ impl ContentCapture {
         mut rx: mpsc::Receiver<CaptureEvent>,
         pool: PgPool,
         retention_days: u32,
+        mask_enabled: bool,
     ) {
         let mut batch = Vec::with_capacity(BATCH_SIZE);
         loop {
@@ -54,13 +56,13 @@ impl ContentCapture {
                 Some(event) = rx.recv() => {
                     batch.push(event);
                     if batch.len() >= BATCH_SIZE {
-                        Self::flush_batch(&batch, &pool, retention_days).await;
+                        Self::flush_batch(&batch, &pool, retention_days, mask_enabled).await;
                         batch.clear();
                     }
                 }
                 _ = tokio::time::sleep(tokio::time::Duration::from_millis(FLUSH_INTERVAL_MS)) => {
                     if !batch.is_empty() {
-                        Self::flush_batch(&batch, &pool, retention_days).await;
+                        Self::flush_batch(&batch, &pool, retention_days, mask_enabled).await;
                         batch.clear();
                     }
                 }
@@ -69,18 +71,20 @@ impl ContentCapture {
         }
     }
 
-    async fn flush_batch(batch: &[CaptureEvent], pool: &PgPool, retention_days: u32) {
+    async fn flush_batch(batch: &[CaptureEvent], pool: &PgPool, retention_days: u32, mask_enabled: bool) {
         let expires_at = Utc::now() + Duration::days(retention_days as i64);
         for event in batch {
+            let call_id = Uuid::new_v4();
             let file_metadata = sqlx::types::Json(&event.file_metadata);
             let result = sqlx::query(
                 r#"INSERT INTO call_contents
-                   (user_id, token_id, request_id, model, provider,
+                   (id, user_id, token_id, request_id, model, provider,
                     request_content, response_content, file_metadata,
                     input_tokens, output_tokens, latency_ms, is_stream,
                     ip_address, created_at, expires_at)
-                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW(),$14)"#,
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW(),$15)"#,
             )
+            .bind(call_id)
             .bind(event.user_id)
             .bind(event.token_id)
             .bind(&event.request_id)
@@ -100,6 +104,17 @@ impl ContentCapture {
 
             if let Err(e) = result {
                 tracing::warn!("content_capture insert failed: {}", e);
+            } else if mask_enabled {
+                let pool = pool.clone();
+                let content = event.request_content.clone();
+                let resp_content = event.response_content.clone();
+                let _ = tokio::spawn(async move {
+                    let results = crate::content_scanner::scan_content(&content);
+                    if let Some(ref resp) = resp_content {
+                            let _resp_results = crate::content_scanner::scan_content(resp);
+                        }
+                    crate::content_scanner::save_scan_results(&pool, call_id, &results).await;
+                });
             }
         }
     }

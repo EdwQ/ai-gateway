@@ -2,6 +2,7 @@ mod analytics_worker;
 mod auth;
 mod config;
 mod content_capture;
+mod content_scanner;
 mod db;
 mod dingtalk;
 mod mask;
@@ -144,6 +145,7 @@ async fn main() {
         .route("/api/v1/analysis/top-users", get(analysis_routes::top_users))
         .route("/api/v1/analysis/top-models", get(analysis_routes::top_models))
         .route("/api/v1/analysis/export", get(analysis_routes::export))
+        .route("/api/v1/analysis/alerts", get(analysis_routes::alerts))
         // CORS
         .layer(
             CorsLayer::new()

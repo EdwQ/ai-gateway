@@ -6,10 +6,103 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
+use uuid::Uuid;
 
 use crate::auth::validate_api_token;
 use crate::models::CallContent;
 use crate::routes::gateway::AppState;
+
+/// GET /api/v1/analysis/alerts
+pub async fn alerts(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Query(params): Query<AlertParams>,
+) -> impl IntoResponse {
+    let token = match extract_token_from_analysis(&headers) {
+        Ok(t) => t,
+        Err(e) => return error_response(e),
+    };
+
+    let _user = match validate_api_token(&state.db.pool, &token).await {
+        Ok(u) => u,
+        Err(e) => return error_response(e),
+    };
+
+    let page = params.page.unwrap_or(1).max(1);
+    let page_size = params.page_size.unwrap_or(20).max(1).min(100);
+    let offset = (page - 1) * page_size;
+    let severity = params.severity.as_deref().unwrap_or("");
+
+    let items = if severity.is_empty() {
+        sqlx::query(
+            r#"SELECT cm.id, cm.call_content_id, cm.mask_type, cm.mask_pattern,
+                      cm.match_count, cm.severity, cm.created_at,
+                      cc.model, cc.provider, cc.user_id
+               FROM content_masks cm
+               LEFT JOIN call_contents cc ON cc.id = cm.call_content_id
+               ORDER BY cm.created_at DESC
+               LIMIT $1 OFFSET $2"#,
+        )
+        .bind(page_size)
+        .bind(offset)
+        .fetch_all(&state.db.pool)
+        .await
+        .unwrap_or_default()
+    } else {
+        sqlx::query(
+            r#"SELECT cm.id, cm.call_content_id, cm.mask_type, cm.mask_pattern,
+                      cm.match_count, cm.severity, cm.created_at,
+                      cc.model, cc.provider, cc.user_id
+               FROM content_masks cm
+               LEFT JOIN call_contents cc ON cc.id = cm.call_content_id
+               WHERE cm.severity = $1
+               ORDER BY cm.created_at DESC
+               LIMIT $2 OFFSET $3"#,
+        )
+        .bind(severity)
+        .bind(page_size)
+        .bind(offset)
+        .fetch_all(&state.db.pool)
+        .await
+        .unwrap_or_default()
+    };
+
+    let total: i64 = if severity.is_empty() {
+        sqlx::query_scalar("SELECT COUNT(*) FROM content_masks")
+            .fetch_one(&state.db.pool)
+            .await
+            .unwrap_or(0)
+    } else {
+        sqlx::query_scalar("SELECT COUNT(*) FROM content_masks WHERE severity = $1")
+            .bind(severity)
+            .fetch_one(&state.db.pool)
+            .await
+            .unwrap_or(0)
+    };
+
+    let alerts_json: Vec<serde_json::Value> = items
+        .into_iter()
+        .map(|r| {
+            serde_json::json!({
+                "id": r.get::<i32, _>("id"),
+                "call_content_id": r.get::<Uuid, _>("call_content_id").to_string(),
+                "mask_type": r.get::<String, _>("mask_type"),
+                "severity": r.get::<String, _>("severity"),
+                "match_count": r.get::<i32, _>("match_count"),
+                "model": r.get::<Option<String>, _>("model"),
+                "created_at": r.get::<chrono::DateTime<chrono::Utc>, _>("created_at").to_rfc3339(),
+            })
+        })
+        .collect();
+
+    Json(serde_json::json!({
+        "items": alerts_json,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }))
+    .into_response()
+}
 
 const ANALYSIS_CSV_HEADER: &str = "date,user_id,user_name,model,provider,calls,input_tokens,output_tokens,cost,avg_latency_ms,errors";
 
@@ -447,6 +540,13 @@ pub struct TrendParams {
 #[derive(Debug, Deserialize)]
 pub struct ExportParams {
     pub month: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AlertParams {
+    pub page: Option<i64>,
+    pub page_size: Option<i64>,
+    pub severity: Option<String>,
 }
 
 fn extract_token_from_analysis(headers: &axum::http::HeaderMap) -> Result<String, String> {
