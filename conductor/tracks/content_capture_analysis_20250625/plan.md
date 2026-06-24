@@ -37,7 +37,7 @@
     - [ ] Mock 请求/响应数据进行采集测试
     - [ ] 测试流式重组逻辑
     - [ ] 测试批量写入与降级逻辑
-- [ ] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
 
 ## Phase 3: 数据聚合与过期清理
 

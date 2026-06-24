@@ -1,3 +1,4 @@
+mod analytics_worker;
 mod auth;
 mod config;
 mod content_capture;
@@ -18,11 +19,12 @@ use axum::{
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 
+use crate::analytics_worker::AnalyticsWorker;
 use crate::config::AppConfig;
+use crate::content_capture::ContentCapture;
 use crate::db::AppDb;
 use crate::redis::AppRedis;
-use crate::content_capture::ContentCapture;
-use crate::routes::{alias_routes, audit_routes, auth_routes, gateway, health, provider_routes, stats_routes, token_routes, user_routes};
+use crate::routes::{alias_routes, analysis_routes, audit_routes, auth_routes, gateway, health, provider_routes, stats_routes, token_routes, user_routes};
 
 #[tokio::main]
 async fn main() {
@@ -77,6 +79,14 @@ async fn main() {
 
     let config_arc = Arc::new(config);
 
+    // Start analytics background worker
+    let worker_config = config_arc.clone();
+    let worker_pool = db_pool.pool.clone();
+    tokio::spawn(async move {
+        let worker = AnalyticsWorker::new(worker_pool, worker_config);
+        worker.start().await;
+    });
+
     let state = gateway::AppState {
         db: db_pool,
         redis: redis_pool,
@@ -127,6 +137,8 @@ async fn main() {
         .route("/api/v1/stats/export", get(stats_routes::export_stats))
         // Audit
         .route("/api/v1/audit/logs", get(audit_routes::list_audit_logs))
+        // Analysis / Behavior
+        .route("/api/v1/analysis/search", get(analysis_routes::search_content))
         // CORS
         .layer(
             CorsLayer::new()

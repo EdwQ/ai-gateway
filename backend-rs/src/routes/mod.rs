@@ -1,4 +1,5 @@
 pub mod alias_routes;
+pub mod analysis_routes;
 pub mod audit_routes;
 pub mod auth_routes;
 pub mod gateway;
