@@ -139,6 +139,11 @@ async fn main() {
         .route("/api/v1/audit/logs", get(audit_routes::list_audit_logs))
         // Analysis / Behavior
         .route("/api/v1/analysis/search", get(analysis_routes::search_content))
+        .route("/api/v1/analysis/dashboard", get(analysis_routes::dashboard))
+        .route("/api/v1/analysis/trends", get(analysis_routes::trends))
+        .route("/api/v1/analysis/top-users", get(analysis_routes::top_users))
+        .route("/api/v1/analysis/top-models", get(analysis_routes::top_models))
+        .route("/api/v1/analysis/export", get(analysis_routes::export))
         // CORS
         .layer(
             CorsLayer::new()

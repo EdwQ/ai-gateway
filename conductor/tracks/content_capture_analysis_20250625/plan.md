@@ -41,21 +41,21 @@
 
 ## Phase 3: 数据聚合与过期清理
 
-- [ ] Task: 设计聚合表 `daily_usage_stats`
-    - [ ] 字段：date, user_id, model, provider, total_calls, total_input_tokens, total_output_tokens, total_cost, avg_latency_ms
-- [ ] Task: 实现聚合定时任务
-    - [ ] 使用 `tokio::spawn` 后台任务，按可配置间隔（默认每小时）运行
-    - [ ] 聚合查询使用 PostgreSQL 窗口函数
-    - [ ] 从 `call_contents` 扫描最近未聚合的数据
-- [ ] Task: 实现过期清理任务
-    - [ ] 定时扫描 `call_contents` 中 `expires_at < NOW()` 的记录
-    - [ ] 批量删除过期数据（每批 1000 条）
-    - [ ] 清理完成后更新统计信息
-- [ ] Task: 实现全文搜索接口
-    - [ ] 使用 PostgreSQL `pg_trgm` 扩展或 `to_tsvector` 实现
-    - [ ] 新增 REST 端点 `/api/v1/analysis/search`
-    - [ ] 分页返回结果，限制搜索范围在保留期内
-- [ ] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md)
+- [x] Task: 设计聚合表 `daily_usage_stats`
+    - [x] 字段：date, user_id, model, provider, total_calls, total_input_tokens, total_output_tokens, total_cost, avg_latency_ms
+- [x] Task: 实现聚合定时任务
+    - [x] 使用 `tokio::spawn` 后台任务，按可配置间隔（默认每小时）运行
+    - [x] 聚合查询使用 PostgreSQL 窗口函数
+    - [x] 从 `call_contents` 扫描最近未聚合的数据
+- [x] Task: 实现过期清理任务
+    - [x] 定时扫描 `call_contents` 中 `expires_at < NOW()` 的记录
+    - [x] 批量删除过期数据（每批 1000 条）
+    - [x] 清理完成后更新统计信息
+- [x] Task: 实现全文搜索接口
+    - [x] 使用 PostgreSQL `pg_trgm` 扩展或 `to_tsvector` 实现
+    - [x] 新增 REST 端点 `/api/v1/analysis/search`
+    - [x] 分页返回结果，限制搜索范围在保留期内
+- [x] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md)
 
 ## Phase 4: 前端行为分析仪表盘
 

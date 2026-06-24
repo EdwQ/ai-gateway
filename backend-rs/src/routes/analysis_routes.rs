@@ -11,14 +11,20 @@ use crate::auth::validate_api_token;
 use crate::models::CallContent;
 use crate::routes::gateway::AppState;
 
+const ANALYSIS_CSV_HEADER: &str = "date,user_id,user_name,model,provider,calls,input_tokens,output_tokens,cost,avg_latency_ms,errors";
+
 #[derive(Debug, Deserialize)]
 pub struct SearchParams {
     pub q: String,
     pub page: Option<i64>,
     pub page_size: Option<i64>,
+    #[allow(dead_code)]
     pub user_id: Option<String>,
+    #[allow(dead_code)]
     pub model: Option<String>,
+    #[allow(dead_code)]
     pub date_from: Option<String>,
+    #[allow(dead_code)]
     pub date_to: Option<String>,
 }
 
@@ -127,6 +133,320 @@ pub async fn search_content(
         page_size,
     })
     .into_response()
+}
+
+/// GET /api/v1/analysis/dashboard
+pub async fn dashboard(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> impl IntoResponse {
+    let token = match extract_token_from_analysis(&headers) {
+        Ok(t) => t,
+        Err(e) => return error_response(e),
+    };
+
+    let _user = match validate_api_token(&state.db.pool, &token).await {
+        Ok(u) => u,
+        Err(e) => return error_response(e),
+    };
+
+    let total_calls: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(total_calls), 0) FROM daily_usage_stats"
+    )
+    .fetch_one(&state.db.pool)
+    .await
+    .unwrap_or(0);
+
+    let total_input: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(total_input_tokens), 0) FROM daily_usage_stats"
+    )
+    .fetch_one(&state.db.pool)
+    .await
+    .unwrap_or(0);
+
+    let total_output: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(total_output_tokens), 0) FROM daily_usage_stats"
+    )
+    .fetch_one(&state.db.pool)
+    .await
+    .unwrap_or(0);
+
+    let total_cost: f64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(total_cost)::float8, 0) FROM daily_usage_stats"
+    )
+    .fetch_one(&state.db.pool)
+    .await
+    .unwrap_or(0.0);
+
+    let avg_latency: f64 = sqlx::query_scalar(
+        "SELECT COALESCE(AVG(avg_latency_ms)::float8, 0) FROM daily_usage_stats"
+    )
+    .fetch_one(&state.db.pool)
+    .await
+    .unwrap_or(0.0);
+
+    let total_errors: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(error_count), 0) FROM daily_usage_stats"
+    )
+    .fetch_one(&state.db.pool)
+    .await
+    .unwrap_or(0);
+
+    let active_users: i64 = sqlx::query_scalar(
+        "SELECT COUNT(DISTINCT user_id) FROM daily_usage_stats WHERE stat_date >= CURRENT_DATE - 7"
+    )
+    .fetch_one(&state.db.pool)
+    .await
+    .unwrap_or(0);
+
+    let error_rate = if total_calls > 0 {
+        (total_errors as f64 / total_calls as f64 * 100.0 * 100.0).round() / 100.0
+    } else {
+        0.0
+    };
+
+    Json(serde_json::json!({
+        "total_calls": total_calls,
+        "total_input_tokens": total_input,
+        "total_output_tokens": total_output,
+        "total_cost": (total_cost * 100.0).round() / 100.0,
+        "avg_latency_ms": (avg_latency * 100.0).round() / 100.0,
+        "error_rate": error_rate,
+        "active_users_7d": active_users,
+    }))
+    .into_response()
+}
+
+/// GET /api/v1/analysis/trends
+pub async fn trends(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Query(params): Query<TrendParams>,
+) -> impl IntoResponse {
+    let token = match extract_token_from_analysis(&headers) {
+        Ok(t) => t,
+        Err(e) => return error_response(e),
+    };
+
+    let _user = match validate_api_token(&state.db.pool, &token).await {
+        Ok(u) => u,
+        Err(e) => return error_response(e),
+    };
+
+    let days = params.days.unwrap_or(30).max(1).min(365);
+
+    let rows = sqlx::query(
+        r#"SELECT stat_date,
+                  COALESCE(SUM(total_calls), 0) as calls,
+                  COALESCE(SUM(total_input_tokens), 0) as input_tokens,
+                  COALESCE(SUM(total_output_tokens), 0) as output_tokens,
+                  COALESCE(SUM(total_cost)::float8, 0) as cost,
+                  COALESCE(AVG(avg_latency_ms)::float8, 0) as avg_latency
+           FROM daily_usage_stats
+           WHERE stat_date >= CURRENT_DATE - $1::int
+           GROUP BY stat_date
+           ORDER BY stat_date"#,
+    )
+    .bind(days)
+    .fetch_all(&state.db.pool)
+    .await
+    .unwrap_or_default();
+
+    let items: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|r| {
+            let date: chrono::NaiveDate = r.get("stat_date");
+            serde_json::json!({
+                "date": date.format("%Y-%m-%d").to_string(),
+                "calls": r.get::<i64, _>("calls"),
+                "input_tokens": r.get::<i64, _>("input_tokens"),
+                "output_tokens": r.get::<i64, _>("output_tokens"),
+                "cost": r.get::<f64, _>("cost"),
+                "avg_latency_ms": r.get::<f64, _>("avg_latency"),
+            })
+        })
+        .collect();
+
+    Json(serde_json::json!({ "items": items })).into_response()
+}
+
+/// GET /api/v1/analysis/top-users
+pub async fn top_users(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Query(params): Query<TrendParams>,
+) -> impl IntoResponse {
+    let token = match extract_token_from_analysis(&headers) {
+        Ok(t) => t,
+        Err(e) => return error_response(e),
+    };
+
+    let _user = match validate_api_token(&state.db.pool, &token).await {
+        Ok(u) => u,
+        Err(e) => return error_response(e),
+    };
+
+    let days = params.days.unwrap_or(30).max(1).min(365);
+
+    let rows = sqlx::query(
+        r#"SELECT dus.user_id, u.name as user_name,
+                  COALESCE(SUM(dus.total_calls), 0) as calls,
+                  COALESCE(SUM(dus.total_input_tokens + dus.total_output_tokens), 0) as total_tokens,
+                  COALESCE(SUM(dus.total_cost)::float8, 0) as cost
+           FROM daily_usage_stats dus
+           LEFT JOIN users u ON u.id = dus.user_id
+           WHERE dus.stat_date >= CURRENT_DATE - $1::int
+           GROUP BY dus.user_id, u.name
+           ORDER BY cost DESC
+           LIMIT 10"#,
+    )
+    .bind(days)
+    .fetch_all(&state.db.pool)
+    .await
+    .unwrap_or_default();
+
+    let items: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|r| {
+            serde_json::json!({
+                "user_id": r.get::<uuid::Uuid, _>("user_id").to_string(),
+                "user_name": r.get::<Option<String>, _>("user_name").unwrap_or_default(),
+                "calls": r.get::<i64, _>("calls"),
+                "total_tokens": r.get::<i64, _>("total_tokens"),
+                "cost": r.get::<f64, _>("cost"),
+            })
+        })
+        .collect();
+
+    Json(serde_json::json!({ "items": items })).into_response()
+}
+
+/// GET /api/v1/analysis/top-models
+pub async fn top_models(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Query(params): Query<TrendParams>,
+) -> impl IntoResponse {
+    let token = match extract_token_from_analysis(&headers) {
+        Ok(t) => t,
+        Err(e) => return error_response(e),
+    };
+
+    let _user = match validate_api_token(&state.db.pool, &token).await {
+        Ok(u) => u,
+        Err(e) => return error_response(e),
+    };
+
+    let days = params.days.unwrap_or(30).max(1).min(365);
+
+    let rows = sqlx::query(
+        r#"SELECT model,
+                  COALESCE(SUM(total_calls), 0) as calls,
+                  COALESCE(SUM(total_input_tokens + total_output_tokens), 0) as total_tokens,
+                  COALESCE(SUM(total_cost)::float8, 0) as cost,
+                  COALESCE(AVG(avg_latency_ms)::float8, 0) as avg_latency
+           FROM daily_usage_stats
+           WHERE stat_date >= CURRENT_DATE - $1::int
+           GROUP BY model
+           ORDER BY cost DESC
+           LIMIT 10"#,
+    )
+    .bind(days)
+    .fetch_all(&state.db.pool)
+    .await
+    .unwrap_or_default();
+
+    let items: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|r| {
+            serde_json::json!({
+                "model": r.get::<String, _>("model"),
+                "calls": r.get::<i64, _>("calls"),
+                "total_tokens": r.get::<i64, _>("total_tokens"),
+                "cost": r.get::<f64, _>("cost"),
+                "avg_latency_ms": r.get::<f64, _>("avg_latency"),
+            })
+        })
+        .collect();
+
+    Json(serde_json::json!({ "items": items })).into_response()
+}
+
+/// GET /api/v1/analysis/export
+pub async fn export(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Query(params): Query<ExportParams>,
+) -> impl IntoResponse {
+    let token = match extract_token_from_analysis(&headers) {
+        Ok(t) => t,
+        Err(e) => return error_response(e),
+    };
+
+    let _user = match validate_api_token(&state.db.pool, &token).await {
+        Ok(u) => u,
+        Err(e) => return error_response(e),
+    };
+
+    let month = params.month.unwrap_or_else(|| {
+        chrono::Utc::now().format("%Y-%m").to_string()
+    });
+
+    let rows = sqlx::query(
+        r#"SELECT dus.stat_date, dus.user_id, u.name as user_name,
+                  dus.model, dus.provider,
+                  dus.total_calls, dus.total_input_tokens, dus.total_output_tokens,
+                  dus.total_cost, dus.avg_latency_ms, dus.error_count
+           FROM daily_usage_stats dus
+           LEFT JOIN users u ON u.id = dus.user_id
+           WHERE to_char(dus.stat_date, 'YYYY-MM') = $1
+           ORDER BY dus.stat_date, dus.user_id"#,
+    )
+    .bind(&month)
+    .fetch_all(&state.db.pool)
+    .await
+    .unwrap_or_default();
+
+    let csv_lines: Vec<String> = rows
+        .iter()
+        .map(|r| {
+            let date: chrono::NaiveDate = r.get("stat_date");
+            format!(
+                "{},{},{},{},{},{},{},{},{:.4},{:.2},{}",
+                date.format("%Y-%m-%d"),
+                r.get::<uuid::Uuid, _>("user_id"),
+                r.get::<Option<String>, _>("user_name").unwrap_or_default(),
+                r.get::<String, _>("model"),
+                r.get::<String, _>("provider"),
+                r.get::<i64, _>("total_calls"),
+                r.get::<i64, _>("total_input_tokens"),
+                r.get::<i64, _>("total_output_tokens"),
+                r.get::<f64, _>("total_cost"),
+                r.get::<f64, _>("avg_latency_ms"),
+                r.get::<i32, _>("error_count"),
+            )
+        })
+        .collect();
+
+    let mut csv = String::from(ANALYSIS_CSV_HEADER);
+    csv.push('\n');
+    csv.push_str(&csv_lines.join("\n"));
+
+    (
+        [(axum::http::header::CONTENT_TYPE, "text/csv; charset=utf-8"),
+         (axum::http::header::CONTENT_DISPOSITION, &format!("attachment; filename=\"analysis_{}.csv\"", month))],
+        csv,
+    ).into_response()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TrendParams {
+    pub days: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExportParams {
+    pub month: Option<String>,
 }
 
 fn extract_token_from_analysis(headers: &axum::http::HeaderMap) -> Result<String, String> {

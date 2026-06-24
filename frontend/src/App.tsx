@@ -22,6 +22,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   TagsOutlined,
+  FundOutlined,
 } from '@ant-design/icons';
 import { AuthProvider, useAuth } from './api/auth';
 import Dashboard from './pages/Dashboard';
@@ -32,6 +33,7 @@ import Users from './pages/Users';
 import Audit from './pages/Audit';
 import Stats from './pages/Stats';
 import ModelAliases from './pages/Aliases';
+import Analysis from './pages/Analysis';
 
 const { Header, Sider, Content } = Layout;
 
@@ -69,6 +71,7 @@ function AppLayout() {
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
       { key: '/audit', icon: <AuditOutlined />, label: '审计日志' },
       { key: '/stats', icon: <BarChartOutlined />, label: '数据统计' },
+      { key: '/analysis', icon: <FundOutlined />, label: '行为分析' },
     ] : []),
   ];
 
@@ -141,6 +144,7 @@ function AppLayout() {
             {isAdmin && <Route path="/users" element={<Users />} />}
             {isAdmin && <Route path="/audit" element={<Audit />} />}
             {isAdmin && <Route path="/stats" element={<Stats />} />}
+            {isAdmin && <Route path="/analysis" element={<Analysis />} />}
           </Routes>
         </Content>
       </Layout>
