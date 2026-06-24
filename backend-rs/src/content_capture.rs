@@ -113,3 +113,67 @@ impl ContentCapture {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_capture_event_creation() {
+        let event = CaptureEvent {
+            user_id: Uuid::new_v4(),
+            token_id: None,
+            request_id: "req-123".to_string(),
+            model: "gpt-4".to_string(),
+            provider: "openai".to_string(),
+            request_content: serde_json::json!({"messages": [{"role": "user", "content": "hello"}]}),
+            response_content: Some(serde_json::json!({"choices": [{"message": {"content": "hi"}}]})),
+            file_metadata: vec![],
+            input_tokens: 10,
+            output_tokens: 5,
+            latency_ms: 150,
+            is_stream: false,
+            ip_address: Some("127.0.0.1".to_string()),
+        };
+
+        assert_eq!(event.model, "gpt-4");
+        assert_eq!(event.input_tokens, 10);
+        assert_eq!(event.output_tokens, 5);
+        assert_eq!(event.is_stream, false);
+        assert!(event.response_content.is_some());
+    }
+
+    #[test]
+    fn test_capture_config_defaults() {
+        let config = ContentCaptureConfig {
+            enabled: true,
+            retention_days: 30,
+            mask_enabled: true,
+        };
+        assert!(config.enabled);
+        assert_eq!(config.retention_days, 30);
+    }
+
+    #[test]
+    fn test_file_metadata_defaults_to_empty() {
+        let event = CaptureEvent {
+            user_id: Uuid::new_v4(),
+            token_id: None,
+            request_id: "req-456".to_string(),
+            model: "claude-3".to_string(),
+            provider: "anthropic".to_string(),
+            request_content: serde_json::json!({"messages": []}),
+            response_content: None,
+            file_metadata: vec![],
+            input_tokens: 0,
+            output_tokens: 0,
+            latency_ms: 0,
+            is_stream: true,
+            ip_address: None,
+        };
+
+        assert!(event.file_metadata.is_empty());
+        assert!(event.response_content.is_none());
+        assert!(event.ip_address.is_none());
+    }
+}
