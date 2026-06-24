@@ -665,6 +665,104 @@ pub struct ExportParams {
 }
 
 // ============================================================
+// Analysis / Behavior Data Models
+// ============================================================
+
+/// CallContent — stores full request/response for behavior analysis
+#[derive(Debug, Clone, FromRow)]
+pub struct CallContent {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub token_id: Option<Uuid>,
+    pub request_id: Option<String>,
+    pub model: String,
+    pub provider: String,
+    pub request_content: sqlx::types::Json<serde_json::Value>,
+    pub response_content: Option<sqlx::types::Json<serde_json::Value>>,
+    pub file_metadata: sqlx::types::Json<Vec<serde_json::Value>>,
+    pub input_tokens: i32,
+    pub output_tokens: i32,
+    pub latency_ms: i32,
+    pub is_stream: bool,
+    pub ip_address: Option<String>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// ContentMask — records of sensitive data pattern matches
+#[derive(Debug, Clone, FromRow)]
+pub struct ContentMask {
+    pub id: i32,
+    pub call_content_id: Uuid,
+    pub mask_type: String,
+    pub mask_pattern: String,
+    pub match_count: i32,
+    pub matched_fields: sqlx::types::Json<Vec<String>>,
+    pub severity: String,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+// ============================================================
+// Analysis API DTOs
+// ============================================================
+
+#[derive(Debug, Serialize)]
+pub struct CallContentResponse {
+    pub id: String,
+    pub user_id: String,
+    pub model: String,
+    pub provider: String,
+    pub request_content: serde_json::Value,
+    pub response_content: Option<serde_json::Value>,
+    pub file_metadata: Vec<serde_json::Value>,
+    pub input_tokens: i32,
+    pub output_tokens: i32,
+    pub latency_ms: i32,
+    pub is_stream: bool,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DashboardAnalysisResponse {
+    pub total_calls: i64,
+    pub total_input_tokens: i64,
+    pub total_output_tokens: i64,
+    pub total_cost: f64,
+    pub avg_latency_ms: f64,
+    pub error_rate: f64,
+    pub active_users: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TrendItem {
+    pub date: String,
+    pub calls: i64,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cost: f64,
+    pub avg_latency_ms: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AnalysisUserRankItem {
+    pub user_id: String,
+    pub user_name: String,
+    pub calls: i64,
+    pub total_tokens: i64,
+    pub cost: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AnalysisModelRankItem {
+    pub model: String,
+    pub calls: i64,
+    pub total_tokens: i64,
+    pub cost: f64,
+    pub avg_latency_ms: f64,
+}
+
+// ============================================================
 // Error response
 // ============================================================
 

@@ -2,18 +2,18 @@
 
 ## Phase 1: 数据模型设计与数据库迁移
 
-- [ ] Task: 设计 `call_contents` 表结构
-    - [ ] 定义字段：id, user_id, token_id, model, provider, request_content (JSONB), response_content (JSONB), file_metadata (JSONB), input_tokens, output_tokens, latency_ms, created_at, expires_at
-    - [ ] 设计 `content_masks` 表（存储脱敏规则命中记录）
-    - [ ] 设计索引策略（user_id + created_at, model, content_search via trigram）
-- [ ] Task: 创建数据库迁移 SQL
-    - [ ] 编写 `20240625000001_add_call_contents.sql`
-    - [ ] 编写 `20240625000002_add_content_masks.sql`
+- [x] Task: 设计 `call_contents` 表结构
+    - [x] 定义字段：id, user_id, token_id, model, provider, request_content (JSONB), response_content (JSONB), file_metadata (JSONB), input_tokens, output_tokens, latency_ms, created_at, expires_at
+    - [x] 设计 `content_masks` 表（存储脱敏规则命中记录）
+    - [x] 设计索引策略（user_id + created_at, model, content_search via trigram）
+- [x] Task: 创建数据库迁移 SQL
+    - [x] 编写 `20240625000001_add_call_contents.sql`
+    - [x] 编写 `20240625000002_add_content_masks.sql`
     - [ ] 测试迁移与回滚
-- [ ] Task: 编写 Rust 数据模型（models.rs）
-    - [ ] 定义 `CallContent` struct with serde derives
-    - [ ] 定义 `ContentMask` struct
-    - [ ] 实现 `Insertable` 和 `Queryable` trait 绑定
+- [x] Task: 编写 Rust 数据模型（models.rs）
+    - [x] 定义 `CallContent` struct with serde derives
+    - [x] 定义 `ContentMask` struct
+    - [x] 实现 `Insertable` 和 `Queryable` trait 绑定
 - [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
 
 ## Phase 2: Rust 代理层内容拦截
