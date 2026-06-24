@@ -14,25 +14,25 @@
     - [x] 定义 `CallContent` struct with serde derives
     - [x] 定义 `ContentMask` struct
     - [x] 实现 `Insertable` 和 `Queryable` trait 绑定
-- [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
 
 ## Phase 2: Rust 代理层内容拦截
 
-- [ ] Task: 实现请求内容拦截中间件
-    - [ ] 在 `proxy.rs` 的 `chat_completions` 处理函数中，在转发前提取请求 body
-    - [ ] 支持流式（SSE）和非流式两种模式的 body 提取
-    - [ ] 采集用户 ID、Token 指纹、模型名称等元数据
-- [ ] Task: 实现响应内容拦截
-    - [ ] 非流式：在收到上游响应后、返回客户端前，克隆 body 并提取内容
-    - [ ] 流式（SSE）：通过 `Stream` adapter 边转发边收集 chunks，重组完整响应
-- [ ] Task: 实现异步内容写入管道
-    - [ ] 使用 `tokio::spawn` 将采集数据发送到 mpsc channel
-    - [ ] 后台 consumer 批量写入 PostgreSQL（每批 100 条或每 500ms flush）
-    - [ ] 写入失败降级：记录日志但不阻塞代理请求
-- [ ] Task: 实现内容采集配置开关
-    - [ ] 读取 `CONTENT_CAPTURE_ENABLED` 环境变量
-    - [ ] 读取 `CONTENT_RETENTION_DAYS` 环境变量
-    - [ ] 通过 `config.rs` 注入配置到代理模块
+- [x] Task: 实现请求内容拦截中间件
+    - [x] 在 `proxy.rs` 的 `chat_completions` 处理函数中，在转发前提取请求 body
+    - [x] 支持流式（SSE）和非流式两种模式的 body 提取
+    - [x] 采集用户 ID、Token 指纹、模型名称等元数据
+- [x] Task: 实现响应内容拦截
+    - [x] 非流式：在收到上游响应后、返回客户端前，克隆 body 并提取内容
+    - [x] 流式（SSE）：通过 `Stream` adapter 边转发边收集 chunks，重组完整响应
+- [x] Task: 实现异步内容写入管道
+    - [x] 使用 `tokio::spawn` 将采集数据发送到 mpsc channel
+    - [x] 后台 consumer 批量写入 PostgreSQL（每批 100 条或每 500ms flush）
+    - [x] 写入失败降级：记录日志但不阻塞代理请求
+- [x] Task: 实现内容采集配置开关
+    - [x] 读取 `CONTENT_CAPTURE_ENABLED` 环境变量
+    - [x] 读取 `CONTENT_RETENTION_DAYS` 环境变量
+    - [x] 通过 `config.rs` 注入配置到代理模块
 - [ ] Task: 编写采集模块单元测试
     - [ ] Mock 请求/响应数据进行采集测试
     - [ ] 测试流式重组逻辑

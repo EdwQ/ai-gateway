@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 use crate::auth::validate_api_token;
 use crate::config::AppConfig;
+use crate::content_capture::{CaptureEvent, CaptureSender};
 use crate::db::DbPool;
 use crate::models::{
     ChatCompletionRequest, Message, ModelInfo, ModelListResponse, User,
@@ -30,6 +31,7 @@ pub struct AppState {
     pub config: Arc<AppConfig>,
     pub key_manager: Arc<KeyManager>,
     pub http_client: Arc<reqwest::Client>,
+    pub content_capture: CaptureSender,
 }
 
 /// Extract API token from Authorization header
@@ -109,6 +111,15 @@ pub async fn chat_completions(
     };
 
     // 7. Proxy the request
+    let request_content = serde_json::json!({
+        "model": body.model,
+        "messages": body.messages,
+        "stream": body.stream,
+        "temperature": body.temperature,
+        "max_tokens": body.max_tokens,
+        "top_p": body.top_p,
+    });
+
     let messages: Vec<Message> = body.messages.iter().map(|m| Message {
         role: m.role.clone(),
         content: m.content.clone(),
@@ -118,6 +129,7 @@ pub async fn chat_completions(
         return handle_stream(
             &state, &user, &body, &real_model, &provider.name,
             &provider.base_url, &api_key, &messages, &request_id, start,
+            request_content, &headers,
         ).await;
     }
 
@@ -154,6 +166,23 @@ pub async fn chat_completions(
     let completion_tokens = usage.get("completion_tokens").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
     let total_tokens = usage.get("total_tokens").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
 
+    // Capture request + response content (non-streaming)
+    state.content_capture.send(CaptureEvent {
+        user_id: user.id,
+        token_id: None,
+        request_id: request_id.to_string(),
+        model: body.model.clone(),
+        provider: provider.name.clone(),
+        request_content,
+        response_content: Some(data.clone()),
+        file_metadata: vec![],
+        input_tokens: prompt_tokens,
+        output_tokens: completion_tokens,
+        latency_ms: duration,
+        is_stream: false,
+        ip_address: None,
+    });
+
     // Record usage
     let _ = record_usage(
         &state.db.pool, user.id, &body.model, &provider.name,
@@ -182,6 +211,8 @@ async fn handle_stream(
     messages: &[Message],
     request_id: &Uuid,
     start: Instant,
+    request_content: serde_json::Value,
+    headers: &HeaderMap,
 ) -> Response {
     let url = format!("{}/v1/chat/completions", base_url.trim_end_matches('/'));
 
@@ -234,7 +265,7 @@ async fn handle_stream(
         );
     }
 
-    // Create SSE stream that forwards upstream SSE chunks
+    // Create SSE stream that forwards upstream SSE chunks and collects content
     let user_id = user.id;
     let model = body.model.clone();
     let provider_name = provider_name.to_string();
@@ -242,32 +273,88 @@ async fn handle_stream(
     let request_id_str = request_id.to_string();
     let start_time = start;
 
-    // Stream upstream bytes as SSE events
-    let sse_stream = resp.bytes_stream().map(|chunk| {
+    // Shared buffer to collect full response content
+    let response_chunks = Arc::new(tokio::sync::Mutex::new(String::new()));
+    let chunks_clone = response_chunks.clone();
+
+    let sse_stream = resp.bytes_stream().map(move |chunk| {
+        let chunks = chunks_clone.clone();
         chunk.map(|bytes| {
-            // Convert bytes to string for SSE event data
             let text = String::from_utf8_lossy(&bytes);
-            axum::response::sse::Event::default().data(text)
+            // Append to shared buffer
+            let mut buf = chunks.blocking_lock();
+            buf.push_str(&text);
+            axum::response::sse::Event::default().data(text.to_string())
         }).map_err(|e| {
             tracing::warn!("Stream error: {}", e);
             e
         })
     });
 
-    // Spawn background task to record final usage after stream completes
+    // Spawn background: record usage + capture content after stream
     let pool_bg = pool.clone();
     let uid_bg = user_id;
     let model_bg = model.clone();
     let prov_bg = provider_name.clone();
     let rid_bg = request_id_str.clone();
     let start_bg = start_time;
+    let capture = state.content_capture.clone();
+    let req_content_val = request_content;
+    let ip = headers
+        .get("X-Forwarded-For")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.split(',').next().unwrap_or(s).trim().to_string());
 
     tokio::spawn(async move {
         let duration = start_bg.elapsed().as_millis() as i32;
+
+        // Collect full response from buffered SSE chunks
+        let full_response_text = {
+            let buf = response_chunks.lock().await;
+            if buf.is_empty() {
+                None
+            } else {
+                // Try to parse the collected SSE data as a JSON response
+                // SSE format: "data: {...}\n\n" — collect all data lines and combine
+                let combined: String = buf
+                    .lines()
+                    .filter(|l| l.starts_with("data: ") && *l != "data: [DONE]")
+                    .filter_map(|l| l.strip_prefix("data: "))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if combined.is_empty() {
+                    None
+                } else {
+                    // Wrap as a JSON streaming array
+                    Some(serde_json::json!({
+                        "stream_chunks": format!("[{}]", combined)
+                    }))
+                }
+            }
+        };
+
+        // Record usage
         let _ = record_usage(
             &pool_bg, uid_bg, &model_bg, &prov_bg,
             0, 0, 0, duration, true, 200, None, &rid_bg, None, true,
         ).await;
+
+        // Capture content
+        capture.send(CaptureEvent {
+            user_id: uid_bg,
+            token_id: None,
+            request_id: rid_bg,
+            model: model_bg,
+            provider: prov_bg,
+            request_content: req_content_val,
+            response_content: full_response_text,
+            file_metadata: vec![],
+            input_tokens: 0,
+            output_tokens: 0,
+            latency_ms: duration,
+            is_stream: true,
+            ip_address: ip,
+        });
     });
 
     Sse::new(sse_stream).into_response()

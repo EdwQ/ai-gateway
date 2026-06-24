@@ -30,8 +30,18 @@ pub struct AppConfig {
     // Prompt audit
     pub prompt_save_mode: String, // off | summary | masked | full
 
+    // Content capture for behavior analysis
+    pub content_capture_config: ContentCaptureConfig,
+
     // Allowed origins for CORS
     pub allowed_origins: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ContentCaptureConfig {
+    pub enabled: bool,
+    pub retention_days: u32,
+    pub mask_enabled: bool,
 }
 
 impl AppConfig {
@@ -97,6 +107,16 @@ impl AppConfig {
             // Prompt audit
             prompt_save_mode: env::var("PROMPT_SAVE_MODE")
                 .unwrap_or_else(|_| "off".to_string()),
+
+            // Content capture
+            content_capture_config: ContentCaptureConfig {
+                enabled: env::var("CONTENT_CAPTURE_ENABLED")
+                    .ok().map(|v| v == "true").unwrap_or(false),
+                retention_days: env::var("CONTENT_RETENTION_DAYS")
+                    .ok().and_then(|v| v.parse().ok()).unwrap_or(30),
+                mask_enabled: env::var("CONTENT_MASK_ENABLED")
+                    .ok().map(|v| v == "true").unwrap_or(true),
+            },
 
             // CORS
             allowed_origins: allowed_origins_str

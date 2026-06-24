@@ -1,5 +1,6 @@
 mod auth;
 mod config;
+mod content_capture;
 mod db;
 mod dingtalk;
 mod mask;
@@ -20,6 +21,7 @@ use tower_http::cors::{Any, CorsLayer};
 use crate::config::AppConfig;
 use crate::db::AppDb;
 use crate::redis::AppRedis;
+use crate::content_capture::ContentCapture;
 use crate::routes::{alias_routes, audit_routes, auth_routes, gateway, health, provider_routes, stats_routes, token_routes, user_routes};
 
 #[tokio::main]
@@ -67,6 +69,12 @@ async fn main() {
     // Key manager
     let key_manager = Arc::new(proxy::KeyManager::new());
 
+    // Content capture for behavior analysis
+    let content_capture = Arc::new(ContentCapture::new(
+        db_pool.pool.clone(),
+        config.content_capture_config.clone(),
+    ));
+
     let config_arc = Arc::new(config);
 
     let state = gateway::AppState {
@@ -75,6 +83,7 @@ async fn main() {
         config: config_arc.clone(),
         key_manager,
         http_client,
+        content_capture,
     };
 
     let addr = config_arc.listen_addr.clone();
