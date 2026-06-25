@@ -111,14 +111,6 @@ pub struct SearchParams {
     pub q: String,
     pub page: Option<i64>,
     pub page_size: Option<i64>,
-    #[allow(dead_code)]
-    pub user_id: Option<String>,
-    #[allow(dead_code)]
-    pub model: Option<String>,
-    #[allow(dead_code)]
-    pub date_from: Option<String>,
-    #[allow(dead_code)]
-    pub date_to: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

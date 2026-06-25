@@ -273,23 +273,25 @@ async fn handle_stream(
     let request_id_str = request_id.to_string();
     let start_time = start;
 
-    // Shared buffer to collect full response content
-    let response_chunks = Arc::new(tokio::sync::Mutex::new(String::new()));
-    let chunks_clone = response_chunks.clone();
+    // Use mpsc channel to collect SSE chunks without blocking async runtime
+    let (chunk_tx, mut chunk_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
 
-    let sse_stream = resp.bytes_stream().map(move |chunk| {
-        let chunks = chunks_clone.clone();
-        chunk.map(|bytes| {
-            let text = String::from_utf8_lossy(&bytes);
-            // Append to shared buffer
-            let mut buf = chunks.blocking_lock();
-            buf.push_str(&text);
-            axum::response::sse::Event::default().data(text.to_string())
-        }).map_err(|e| {
-            tracing::warn!("Stream error: {}", e);
-            e
+    let sse_stream = {
+        let tx = chunk_tx.clone();
+        resp.bytes_stream().map(move |chunk| {
+            let tx = tx.clone();
+            chunk.map(|bytes| {
+                let text = String::from_utf8_lossy(&bytes).to_string();
+                let _ = tx.send(text.clone());
+                axum::response::sse::Event::default().data(text)
+            }).map_err(|e| {
+                tracing::warn!("Stream error: {}", e);
+                e
+            })
         })
-    });
+    };
+    // Drop the original sender so the channel closes when the stream ends
+    drop(chunk_tx);
 
     // Spawn background: record usage + capture content after stream
     let pool_bg = pool.clone();
@@ -308,15 +310,17 @@ async fn handle_stream(
     tokio::spawn(async move {
         let duration = start_bg.elapsed().as_millis() as i32;
 
-        // Collect full response from buffered SSE chunks
+        // Collect all SSE chunks from the channel (streams until channel closes)
+        let mut all_chunks = String::new();
+        while let Some(chunk) = chunk_rx.recv().await {
+            all_chunks.push_str(&chunk);
+        }
+
         let full_response_text = {
-            let buf = response_chunks.lock().await;
-            if buf.is_empty() {
+            if all_chunks.is_empty() {
                 None
             } else {
-                // Try to parse the collected SSE data as a JSON response
-                // SSE format: "data: {...}\n\n" — collect all data lines and combine
-                let combined: String = buf
+                let combined: String = all_chunks
                     .lines()
                     .filter(|l| l.starts_with("data: ") && *l != "data: [DONE]")
                     .filter_map(|l| l.strip_prefix("data: "))
@@ -325,7 +329,6 @@ async fn handle_stream(
                 if combined.is_empty() {
                     None
                 } else {
-                    // Wrap as a JSON streaming array
                     Some(serde_json::json!({
                         "stream_chunks": format!("[{}]", combined)
                     }))
