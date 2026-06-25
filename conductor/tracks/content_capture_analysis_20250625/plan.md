@@ -81,16 +81,16 @@
 
 ## Phase 5: 安全审计与异常检测
 
-- [ ] Task: 实现敏感数据检测引擎
-    - [ ] 基于 `mask.rs` 的现有 PII 脱敏逻辑扩展
-    - [ ] 正则匹配模式：API Key、密码、手机号、身份证号、银行卡号
-    - [ ] 命中结果写入 `content_masks` 表
-- [ ] Task: 实现异常检测
-    - [ ] 统计单位时间内单用户/单 IP 调用频率
-    - [ ] 检测非工作时间（如 0:00-6:00）的高频调用
-    - [ ] 检测短时间内同一 prompt 的重复调用
-- [ ] Task: 审计告警 API 与前端
-    - [ ] `/api/v1/analysis/alerts` — 告警列表
+- [x] Task: 实现敏感数据检测引擎
+    - [x] 基于 `mask.rs` 的现有 PII 脱敏逻辑扩展
+    - [x] 正则匹配模式：API Key、密码、手机号、身份证号、银行卡号
+    - [x] 命中结果写入 `content_masks` 表
+- [x] Task: 实现异常检测
+    - [x] 统计单位时间内单用户/单 IP 调用频率
+    - [x] 检测非工作时间（如 0:00-6:00）的高频调用
+    - [x] 检测短时间内同一 prompt 的重复调用
+- [x] Task: 审计告警 API 与前端
+    - [x] `/api/v1/analysis/alerts` — 告警列表
     - [ ] 前端告警页面 `Analysis/Alerts/index.tsx`
     - [ ] 告警级别标记（Info/Warning/Critical）
 - [ ] Task: 集成测试
