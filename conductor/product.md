@@ -34,7 +34,18 @@ AI Gateway — 行为分析扩展模块。在现有企业级 AI API 网关基础
 
 ## 与现有系统集成
 
-- 复用现有的 `usage_logs` 表结构，扩展为包含 content 字段的新架构
-- 在 Rust 代理层（`proxy.rs`）增加内容拦截与异步写入管道
-- 审计日志（`audit_routes.rs`）与分析数据共享同一数据源
-- 管理后台（React 前端）新增"行为分析"仪表盘页面
+### 数据库
+- `call_contents` — JSONB 存储请求/响应全文，支持 GIN 索引全文搜索
+- `content_masks` — 敏感数据检测命中记录
+- `daily_usage_stats` — 长期聚合统计
+
+### 后端（Rust）
+- `content_capture.rs` — 异步 mpsc channel 批量写入管道
+- `content_scanner.rs` — 正则敏感数据检测引擎（API Key、电话、身份证等）
+- `analytics_worker.rs` — 后台聚合与过期清理任务
+- `/api/v1/analysis/*` — 完整 REST 端点（dashboard, trends, top-users, top-models, search, alerts, export）
+
+### 前端（React）
+- 新增"行为分析"仪表盘页面（统计卡片、趋势图、用户/模型排行）
+- Ant Design + ECharts 可视化
+- 仅 admin+ 角色可访问
