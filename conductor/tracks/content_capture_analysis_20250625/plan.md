@@ -59,25 +59,25 @@
 
 ## Phase 4: 前端行为分析仪表盘
 
-- [ ] Task: 后端 API 路由实现
-    - [ ] `/api/v1/analysis/dashboard` — 概览指标
-    - [ ] `/api/v1/analysis/trends` — 时间序列数据
-    - [ ] `/api/v1/analysis/top-users` — 用户排行
-    - [ ] `/api/v1/analysis/top-models` — 模型排行
-    - [ ] `/api/v1/analysis/export` — CSV 导出
-- [ ] Task: 前端仪表盘页面
-    - [ ] 创建 `frontend/src/pages/Analysis/` 目录
-    - [ ] `Dashboard/index.tsx` — 概览指标卡片（调用量、Token、费用、延迟）
-    - [ ] `Trends/index.tsx` — 折线图（ECharts 或 Ant Design Charts）
-    - [ ] `Rankings/index.tsx` — 用户/模型排行 Table
-- [ ] Task: 导航与权限集成
-    - [ ] 在侧边栏添加 "行为分析" 菜单项
-    - [ ] 权限控制：仅 `admin+` 角色可访问
-    - [ ] 新增路由配置
+- [x] Task: 后端 API 路由实现
+    - [x] `/api/v1/analysis/dashboard` — 概览指标
+    - [x] `/api/v1/analysis/trends` — 时间序列数据
+    - [x] `/api/v1/analysis/top-users` — 用户排行
+    - [x] `/api/v1/analysis/top-models` — 模型排行
+    - [x] `/api/v1/analysis/export` — CSV 导出
+- [x] Task: 前端仪表盘页面
+    - [x] 创建 `frontend/src/pages/Analysis/` 目录
+    - [x] `Dashboard/index.tsx` — 概览指标卡片（调用量、Token、费用、延迟）
+    - [x] `Trends/index.tsx` — 折线图（ECharts 或 Ant Design Charts）
+    - [x] `Rankings/index.tsx` — 用户/模型排行 Table
+- [x] Task: 导航与权限集成
+    - [x] 在侧边栏添加 "行为分析" 菜单项
+    - [x] 权限控制：仅 `admin+` 角色可访问
+    - [x] 新增路由配置
 - [ ] Task: 前端单元测试
     - [ ] 测试仪表盘组件渲染
     - [ ] Mock API 响应测试数据展示
-- [ ] Task: Conductor - User Manual Verification 'Phase 4' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4' (Protocol in workflow.md)
 
 ## Phase 5: 安全审计与异常检测
 
@@ -97,3 +97,6 @@
     - [ ] 端到端测试：请求 → 采集 → 存储 → 查询 → 展示
     - [ ] 性能测试：1000 并发请求下采集对延迟的影响 < 5ms
 - [ ] Task: Conductor - User Manual Verification 'Phase 5' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions 1411e5d
