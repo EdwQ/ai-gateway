@@ -15,9 +15,9 @@ pub struct AppConfig {
     pub python_backend_url: String,
 
     // DingTalk OAuth
-    pub dingtalk_app_id: String,
+    pub dingtalk_app_key: String,
     pub dingtalk_app_secret: String,
-    pub dingtalk_agent_id: String,
+    pub dingtalk_client_id: String,
 
     // JWT
     pub jwt_access_token_expire_minutes: i64,
@@ -83,9 +83,9 @@ impl AppConfig {
             }),
 
             // DingTalk
-            dingtalk_app_id: env::var("DINGTALK_APP_ID").unwrap_or_default(),
+            dingtalk_app_key: env::var("DINGTALK_APP_KEY").unwrap_or_default(),
             dingtalk_app_secret: env::var("DINGTALK_APP_SECRET").unwrap_or_default(),
-            dingtalk_agent_id: env::var("DINGTALK_AGENT_ID").unwrap_or_default(),
+            dingtalk_client_id: env::var("DINGTALK_CLIENT_ID").unwrap_or_default(),
 
             // JWT
             jwt_access_token_expire_minutes: env::var("JWT_ACCESS_TOKEN_EXPIRE_MINUTES")

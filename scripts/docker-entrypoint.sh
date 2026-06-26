@@ -33,13 +33,13 @@ fi
 
 # 检查关键环境变量
 echo "检查关键环境变量..."
-if [ -z "$DINGTALK_APP_ID" ] || [ "$DINGTALK_APP_ID" = "dev_app_id" ]; then
-  echo "错误：DINGTALK_APP_ID 未配置或仍为占位值！"
+if [ -z "$DINGTALK_APP_KEY" ] || [ "$DINGTALK_APP_KEY" = "dev_app_key" ]; then
+  echo "错误：DINGTALK_APP_KEY 未配置或仍为占位值！"
   exit 1
 fi
 
-if [[ ! "$DINGTALK_APP_ID" =~ ^(cn|dinggq) ]]; then
-  echo "警告：DINGTALK_APP_ID ($DINGTALK_APP_ID) 格式异常，通常应为 cnxxx 或 dinggqxxx 开头。"
+if [[ ! "$DINGTALK_APP_KEY" =~ ^(cn|dinggq) ]]; then
+  echo "警告：DINGTALK_APP_KEY ($DINGTALK_APP_KEY) 格式异常，通常应为 cnxxx 或 dinggqxxx 开头。"
 fi
 
 echo "环境变量检查通过。"

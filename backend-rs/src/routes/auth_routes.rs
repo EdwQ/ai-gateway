@@ -674,7 +674,7 @@ async fn get_dept_name(state: &AppState, dept_id: &str) -> Option<String> {
 
     // Fallback: query DingTalk API
     let config = &*state.config;
-    if !config.dingtalk_app_id.is_empty() {
+    if !config.dingtalk_app_key.is_empty() {
         if let Ok(detail) = get_dingtalk_client()
             .get_department_detail(dept_id, config)
             .await

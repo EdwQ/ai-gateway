@@ -1,8 +1,0 @@
-{
-  "track_id": "content_capture_analysis_20250625",
-  "type": "feature",
-  "status": "new",
-  "created_at": "2026-06-24T16:06:36Z",
-  "updated_at": "2026-06-24T16:06:36Z",
-  "description": "实现 API 调用内容采集与行为分析管道"
-}

@@ -51,9 +51,9 @@ check_env() {
   fi
 
   # 检查钉钉 App ID 格式
-  DINGTALK_APP_ID=$(grep "DINGTALK_APP_ID=" "$PROJECT_ROOT/.env" | cut -d'=' -f2)
-  if [[ ! "$DINGTALK_APP_ID" =~ ^(cn|dinggq) ]]; then
-    log_warn "钉钉 App ID ($DINGTALK_APP_ID) 格式异常，通常应为 cnxxx 或 dinggqxxx 开头。请确认是否误用了飞书的 UUID 格式。"
+  DINGTALK_APP_KEY=$(grep "DINGTALK_APP_KEY=" "$PROJECT_ROOT/.env" | cut -d'=' -f2)
+  if [[ ! "$DINGTALK_APP_KEY" =~ ^(cn|dinggq) ]]; then
+    log_warn "钉钉 AppKey ($DINGTALK_APP_KEY) 格式异常，通常应为 cnxxx 或 dinggqxxx 开头。请确认是否误用了飞书的 UUID 格式。"
   fi
 
   log_info "环境变量检查通过。"

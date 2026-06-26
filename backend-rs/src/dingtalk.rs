@@ -78,7 +78,7 @@ impl DingTalkClient {
         // Fetch new token
         let url = format!(
             "https://oapi.dingtalk.com/gettoken?appkey={}&appsecret={}",
-            config.dingtalk_app_id,
+            config.dingtalk_app_key,
             config.dingtalk_app_secret,
         );
 
@@ -155,7 +155,7 @@ impl DingTalkClient {
             .http_client
             .post("https://oapi.dingtalk.com/sns/getuserinfo_bycode")
             .query(&[
-                ("accessKey", config.dingtalk_app_id.as_str()),
+                ("accessKey", config.dingtalk_app_key.as_str()),
                 ("timestamp", timestamp.as_str()),
                 ("signature", signature.as_str()),
             ])
@@ -287,7 +287,7 @@ impl DingTalkClient {
              &scope=snsapi_login\
              &state={}\
              &redirect_uri={}",
-            config.dingtalk_app_id, state, encoded_redirect,
+            config.dingtalk_app_key, state, encoded_redirect,
         )
     }
 
